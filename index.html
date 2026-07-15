@@ -25,7 +25,7 @@
             padding: 24px;
         }
 
-        /* LOGIN SCREEN */
+        /* LOGIN SCREENS */
         .login-screen {
             display: flex;
             align-items: center;
@@ -38,9 +38,9 @@
             background: #FFFFFF;
             border: 1px solid #E1E6E4;
             border-radius: 12px;
-            padding: 32px;
+            padding: 40px;
             width: 100%;
-            max-width: 380px;
+            max-width: 420px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
@@ -48,34 +48,8 @@
             font-family: 'Space Grotesk', sans-serif;
             font-size: 24px;
             font-weight: 700;
-            margin-bottom: 24px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-
-        .tab-button {
-            flex: 1;
-            padding: 10px 16px;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .tab-button.active {
-            background: #0E8F82;
-            color: #fff;
-        }
-
-        .tab-button {
-            background: #F6F8F7;
-            color: #6B7580;
+            margin-bottom: 32px;
+            text-align: center;
         }
 
         .login-form {
@@ -97,26 +71,55 @@
 
         .form-group input,
         .form-group select {
-            padding: 10px 12px;
+            padding: 12px;
             border: 1px solid #E1E6E4;
             border-radius: 8px;
             font-size: 13px;
             font-family: 'Inter', sans-serif;
         }
 
-        .submit-btn {
+        .login-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-login {
             padding: 12px 16px;
-            background: #0E8F82;
             color: #fff;
             border: none;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .submit-btn.admin {
+        .btn-login.staff {
+            background: #0E8F82;
+        }
+
+        .btn-login.admin {
             background: #0EA5E9;
+        }
+
+        .btn-back {
+            padding: 12px 16px;
+            background: none;
+            border: 1px solid #E1E6E4;
+            color: #6B7580;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .demo-text {
+            font-size: 11px;
+            color: #6B7580;
+            margin-top: 12px;
+            text-align: center;
         }
 
         /* HEADER */
@@ -232,14 +235,9 @@
             font-size: 12px;
         }
 
-        .request-item strong {
-            display: block;
-            margin-bottom: 4px;
-        }
-
         .staff-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 12px;
             margin-bottom: 20px;
         }
@@ -268,90 +266,78 @@
             color: #0EA5E9;
         }
 
-        /* STAFF CALENDAR */
-        .week-selector {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .week-btn {
-            padding: 8px 14px;
-            border: 1px solid #E1E6E4;
-            border-radius: 6px;
+        /* STAFF CALENDAR TABLE */
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
             background: #FFFFFF;
-            color: #141B24;
-            font-size: 13px;
+        }
+
+        .calendar-table thead th {
+            background: #F3F4F6;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
             font-weight: 600;
-            cursor: pointer;
-        }
-
-        .week-btn.active {
-            background: #0EA5E9;
-            color: #fff;
-            border-color: #0EA5E9;
-        }
-
-        .shift-section {
-            margin-bottom: 32px;
-        }
-
-        .shift-section h3 {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 12px;
+            border: 1px solid #E1E6E4;
             color: #6B7580;
         }
 
-        .days-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-        }
-
-        .day-box {
-            background: #FFFFFF;
+        .calendar-table tbody td {
             border: 1px solid #E1E6E4;
-            border-radius: 10px;
-            padding: 16px;
-            cursor: pointer;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            min-height: 80px;
-            transition: all 0.2s;
+            padding: 12px;
+            vertical-align: top;
         }
 
-        .day-box:hover:not(.saved) {
-            background: #F0FFFE;
-        }
-
-        .day-box.on {
-            background: #0EA5E9;
-            border: 2px solid #0EA5E9;
-            color: #fff;
-        }
-
-        .day-box.off {
+        .week-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6B7580;
+            width: 60px;
             background: #F3F4F6;
         }
 
-        .day-name {
-            font-size: 14px;
+        .day-cell {
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .shift-option {
+            padding: 8px;
+            border: 1px solid #E1E6E4;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            background: #FFFFFF;
+        }
+
+        .shift-option:hover {
+            background: #F0FFFE;
+        }
+
+        .shift-option.on {
+            background: #0EA5E9;
+            border-color: #0EA5E9;
+            color: #fff;
             font-weight: 600;
         }
 
-        .day-label {
-            font-size: 12px;
+        .shift-option.off {
+            background: #F3F4F6;
+            color: #6B7580;
+        }
+
+        .shift-label {
+            font-size: 10px;
+            color: #999;
             font-weight: 500;
         }
 
-        .day-box.on .day-name,
-        .day-box.on .day-label {
+        .shift-option.on .shift-label {
             color: #fff;
         }
 
@@ -413,23 +399,34 @@
                 flex-direction: column;
                 gap: 16px;
             }
+            .calendar-table {
+                font-size: 12px;
+            }
+            .calendar-table td {
+                padding: 8px;
+            }
         }
     </style>
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
-<div id="loginScreen" class="login-screen">
+<!-- INITIAL LOGIN CHOICE SCREEN -->
+<div id="choiceScreen" class="login-screen">
     <div class="login-card">
-        <h1>Shift Request Login</h1>
-        
-        <div class="tabs">
-            <button class="tab-button active" onclick="switchTab('staff')">Staff Login</button>
-            <button class="tab-button" onclick="switchTab('admin')">Admin Login</button>
+        <h1>Shift Scheduler</h1>
+        <div class="login-form">
+            <p style="text-align: center; margin-bottom: 24px; color: #6B7580;">Are you a Staff or Admin?</p>
+            <button class="btn-login staff" onclick="goToStaffLogin()">Staff Login</button>
+            <button class="btn-login admin" onclick="goToAdminLogin()">Admin Login</button>
         </div>
+    </div>
+</div>
 
-        <!-- STAFF LOGIN -->
-        <div id="staffTab" class="login-form">
+<!-- STAFF LOGIN SCREEN -->
+<div id="staffLoginScreen" class="login-screen hidden">
+    <div class="login-card">
+        <h1>Staff Login</h1>
+        <div class="login-form">
             <div class="form-group">
                 <label>Select your name</label>
                 <select id="staffSelect">
@@ -443,21 +440,28 @@
                     <option>Hilda</option>
                 </select>
             </div>
-            <button class="submit-btn" onclick="loginStaff()">Login as Staff</button>
+            <button class="btn-login staff" onclick="loginStaff()">Login</button>
+            <button class="btn-back" onclick="backToChoice()">← Back</button>
         </div>
+    </div>
+</div>
 
-        <!-- ADMIN LOGIN -->
-        <div id="adminTab" class="login-form hidden">
+<!-- ADMIN LOGIN SCREEN -->
+<div id="adminLoginScreen" class="login-screen hidden">
+    <div class="login-card">
+        <h1>Admin Login</h1>
+        <div class="login-form">
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="adminUsername" placeholder="Enter admin username">
+                <input type="text" id="adminUsername" placeholder="Enter username">
             </div>
             <div class="form-group">
                 <label>Password</label>
                 <input type="password" id="adminPassword" placeholder="Enter password">
             </div>
-            <button class="submit-btn admin" onclick="loginAdmin()">Login as Admin</button>
-            <div style="font-size: 11px; color: #6B7580; margin-top: 8px;">
+            <button class="btn-login admin" onclick="loginAdmin()">Login</button>
+            <button class="btn-back" onclick="backToChoice()">← Back</button>
+            <div class="demo-text">
                 Demo: username <code style="background: #f0f0f0; padding: 2px 4px;">admin</code>, password <code style="background: #f0f0f0; padding: 2px 4px;">admin123</code>
             </div>
         </div>
@@ -527,26 +531,25 @@
     </div>
 
     <div class="container">
-        <!-- Week Selector -->
-        <div style="margin-bottom: 32px;">
-            <span style="font-size: 13px; font-weight: 500;">Select week:</span>
-            <div class="week-selector" id="weekSelector"></div>
-        </div>
-
-        <!-- Calendar -->
         <div class="card">
-            <h2 id="weekTitle">Week 1 — Click ON or OFF</h2>
-            
-            <!-- Day Shift -->
-            <div class="shift-section">
-                <h3>Day Shift</h3>
-                <div class="days-grid" id="dayShiftGrid"></div>
-            </div>
-
-            <!-- Night Shift -->
-            <div class="shift-section">
-                <h3>Night Shift</h3>
-                <div class="days-grid" id="nightShiftGrid"></div>
+            <h2>Schedule Calendar</h2>
+            <div style="overflow-x: auto;">
+                <table class="calendar-table">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Sunday</th>
+                            <th>Monday</th>
+                            <th>Tuesday</th>
+                            <th>Wednesday</th>
+                            <th>Thursday</th>
+                            <th>Friday</th>
+                            <th>Saturday</th>
+                        </tr>
+                    </thead>
+                    <tbody id="calendarBody">
+                    </tbody>
+                </table>
             </div>
 
             <!-- Buttons -->
@@ -560,8 +563,8 @@
 </div>
 
 <script>
-    const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const SHIFTS = ["Day", "Night"];
+    const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const SHIFTS = ["Morning (Umaga)", "Evening (Gabi)"];
     const STAFF_LIST = ["Ana", "Ben", "Carla", "Dan", "Elena", "Franco", "Gabriel", "Hilda"];
     const ADMIN_CREDS = { username: "admin", password: "admin123" };
 
@@ -569,17 +572,27 @@
         user: null,
         adminWeeks: 2,
         allRequests: [],
-        currentWeek: 1,
         selections: {},
         savedSelections: {}
     };
 
-    function switchTab(tab) {
-        document.getElementById('staffTab').classList.toggle('hidden', tab !== 'staff');
-        document.getElementById('adminTab').classList.toggle('hidden', tab !== 'admin');
-        document.querySelectorAll('.tab-button').forEach((btn, i) => {
-            btn.classList.toggle('active', (tab === 'staff' && i === 0) || (tab === 'admin' && i === 1));
-        });
+    // LOGIN FLOW
+    function goToStaffLogin() {
+        document.getElementById('choiceScreen').classList.add('hidden');
+        document.getElementById('staffLoginScreen').classList.remove('hidden');
+    }
+
+    function goToAdminLogin() {
+        document.getElementById('choiceScreen').classList.add('hidden');
+        document.getElementById('adminLoginScreen').classList.remove('hidden');
+    }
+
+    function backToChoice() {
+        document.getElementById('choiceScreen').classList.remove('hidden');
+        document.getElementById('staffLoginScreen').classList.add('hidden');
+        document.getElementById('adminLoginScreen').classList.add('hidden');
+        document.getElementById('adminUsername').value = '';
+        document.getElementById('adminPassword').value = '';
     }
 
     function loginStaff() {
@@ -600,14 +613,18 @@
     }
 
     function showAdminDashboard() {
-        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('choiceScreen').classList.add('hidden');
+        document.getElementById('staffLoginScreen').classList.add('hidden');
+        document.getElementById('adminLoginScreen').classList.add('hidden');
         document.getElementById('adminDashboard').classList.remove('hidden');
         document.getElementById('staffCalendar').classList.add('hidden');
         renderAdminDashboard();
     }
 
     function showStaffCalendar() {
-        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('choiceScreen').classList.add('hidden');
+        document.getElementById('staffLoginScreen').classList.add('hidden');
+        document.getElementById('adminLoginScreen').classList.add('hidden');
         document.getElementById('adminDashboard').classList.add('hidden');
         document.getElementById('staffCalendar').classList.remove('hidden');
         document.getElementById('staffGreeting').textContent = `Hello, ${appState.user.name}`;
@@ -616,17 +633,16 @@
 
     function logout() {
         appState.user = null;
-        appState.currentWeek = 1;
         appState.selections = {};
-        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('choiceScreen').classList.remove('hidden');
+        document.getElementById('staffLoginScreen').classList.add('hidden');
+        document.getElementById('adminLoginScreen').classList.add('hidden');
         document.getElementById('adminDashboard').classList.add('hidden');
         document.getElementById('staffCalendar').classList.add('hidden');
-        document.getElementById('adminUsername').value = '';
-        document.getElementById('adminPassword').value = '';
     }
 
+    // ADMIN FUNCTIONS
     function renderAdminDashboard() {
-        // Staff stats
         const stats = {};
         STAFF_LIST.forEach(s => stats[s] = 0);
         appState.allRequests.forEach(r => stats[r.staff] = (stats[r.staff] || 0) + 1);
@@ -640,7 +656,6 @@
         `).join('');
         document.getElementById('staffStats').innerHTML = statsHtml;
 
-        // Requests list
         document.getElementById('requestCount').textContent = appState.allRequests.length;
         if (appState.allRequests.length === 0) {
             document.getElementById('requestsList').innerHTML = `
@@ -650,7 +665,7 @@
                 </div>
             `;
         } else {
-            const html = [...appState.allRequests].reverse().map((req, i) => `
+            const html = [...appState.allRequests].reverse().map(req => `
                 <div class="request-item">
                     <strong>${req.staff} · ${req.week} · ${req.day} ${req.shift}</strong>
                     <div style="color: #6B7580; font-size: 11px;">${req.time}</div>
@@ -666,48 +681,41 @@
         document.getElementById('weeksDisplay').textContent = newWeeks;
     }
 
+    // STAFF CALENDAR FUNCTIONS
     function renderStaffCalendar() {
-        // Week selector
-        let weeksHtml = '';
-        for (let i = 1; i <= appState.adminWeeks; i++) {
-            weeksHtml += `<button class="week-btn ${appState.currentWeek === i ? 'active' : ''}" onclick="selectWeek(${i})">Week ${i}</button>`;
-        }
-        document.getElementById('weekSelector').innerHTML = weeksHtml;
+        const body = document.getElementById('calendarBody');
+        let html = '';
 
-        // Calendar
-        document.getElementById('weekTitle').textContent = `Week ${appState.currentWeek} — Click ON or OFF`;
-
-        SHIFTS.forEach(shift => {
-            let gridHtml = '';
-            DAYS.forEach(day => {
-                const key = `${appState.currentWeek}-${day}-${shift}`;
-                const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
-                const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
-                const label = val === 'on' ? 'My Request ON' : val === 'off' ? 'My Request OFF' : 'Not set';
-                
-                gridHtml += `
-                    <button class="day-box ${className}" onclick="toggleSelection('${day}', '${shift}')">
-                        <div class="day-name">${day}</div>
-                        <div class="day-label">${label}</div>
-                    </button>
-                `;
-            });
+        for (let week = 1; week <= appState.adminWeeks; week++) {
+            html += `<tr>
+                <td class="week-label">Week ${week}</td>`;
             
-            const gridId = shift === 'Day' ? 'dayShiftGrid' : 'nightShiftGrid';
-            document.getElementById(gridId).innerHTML = gridHtml;
-        });
+            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                const day = DAYS[dayIndex];
+                html += `<td><div class="day-cell">`;
+                
+                SHIFTS.forEach(shift => {
+                    const key = `${week}-${day}-${shift}`;
+                    const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
+                    const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
+                    
+                    html += `<button class="shift-option ${className}" onclick="toggleSelection(${week}, '${day}', '${shift}')">
+                        <div style="font-weight: 600; font-size: 11px;">${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
+                        <div class="shift-label">${shift}</div>
+                    </button>`;
+                });
+                
+                html += `</div></td>`;
+            }
+            html += `</tr>`;
+        }
 
+        body.innerHTML = html;
         updateSaveButtonState();
     }
 
-    function selectWeek(week) {
-        appState.currentWeek = week;
-        appState.selections = {};
-        renderStaffCalendar();
-    }
-
-    function toggleSelection(day, shift) {
-        const key = `${appState.currentWeek}-${day}-${shift}`;
+    function toggleSelection(week, day, shift) {
+        const key = `${week}-${day}-${shift}`;
         const current = appState.selections[key] ?? appState.savedSelections[key] ?? null;
         let next = null;
         if (current === null) next = 'on';
