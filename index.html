@@ -14,8 +14,8 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: #0F1B28;
-            color: #141B24;
+            background: linear-gradient(135deg, #f5f7ff 0%, #e8f4f8 100%);
+            color: #1a1a1a;
             min-height: 100vh;
         }
 
@@ -31,25 +31,29 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background: #0F1B28;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 50%, #e0f2f1 100%);
         }
 
         .login-card {
             background: #FFFFFF;
-            border: 1px solid #E1E6E4;
-            border-radius: 12px;
+            border: 2px solid #d4e8f0;
+            border-radius: 16px;
             padding: 40px;
             width: 100%;
             max-width: 420px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 15px 40px rgba(78, 205, 196, 0.12);
         }
 
         .login-card h1 {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
             margin-bottom: 32px;
             text-align: center;
+            background: linear-gradient(135deg, #00a8a8 0%, #0084d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .login-form {
@@ -66,71 +70,92 @@
 
         .form-group label {
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
+            color: #2c5f7f;
         }
 
         .form-group input,
         .form-group select {
             padding: 12px;
-            border: 1px solid #E1E6E4;
+            border: 2px solid #d4e8f0;
             border-radius: 8px;
             font-size: 13px;
             font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+            background: #f8fbfc;
         }
 
-        .login-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 24px;
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #00c9c3;
+            background: #fff;
         }
 
         .btn-login {
-            padding: 12px 16px;
+            padding: 13px 16px;
             color: #fff;
             border: none;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .btn-login.staff {
-            background: #0E8F82;
+            background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
+        }
+
+        .btn-login.staff:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 201, 195, 0.3);
         }
 
         .btn-login.admin {
-            background: #0EA5E9;
+            background: linear-gradient(135deg, #0084d4 0%, #0066b3 100%);
+        }
+
+        .btn-login.admin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 132, 212, 0.3);
         }
 
         .btn-back {
             padding: 12px 16px;
-            background: none;
-            border: 1px solid #E1E6E4;
-            color: #6B7580;
+            background: #f0f4f8;
+            border: 2px solid #d4e8f0;
+            color: #2c5f7f;
             border-radius: 8px;
             font-size: 14px;
             cursor: pointer;
             margin-top: 12px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: #e3f2fd;
         }
 
         .demo-text {
             font-size: 11px;
-            color: #6B7580;
+            color: #2c5f7f;
             margin-top: 12px;
             text-align: center;
         }
 
         /* HEADER */
         .header {
-            border-bottom: 1px solid #E1E6E4;
-            background: #FFFFFF;
+            border-bottom: 3px solid #d4e8f0;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 50%, #e0f2f1 100%);
             margin-bottom: 32px;
+            border-radius: 12px 12px 0 0;
         }
 
         .header-content {
-            padding: 24px;
+            padding: 32px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -141,16 +166,35 @@
             font-size: 28px;
             font-weight: 700;
             margin: 0;
+            background: linear-gradient(135deg, #00a8a8 0%, #0084d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-label {
+            font-size: 12px;
+            color: #00a8a8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: 600;
         }
 
         .logout-btn {
-            padding: 10px 16px;
-            background: none;
-            border: 1px solid #E1E6E4;
+            padding: 10px 18px;
+            background: #fff;
+            border: 2px solid #d4e8f0;
             border-radius: 8px;
             font-size: 13px;
             cursor: pointer;
-            color: #6B7580;
+            color: #2c5f7f;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #f0f4f8;
         }
 
         /* ADMIN DASHBOARD */
@@ -162,16 +206,20 @@
 
         .card {
             background: #FFFFFF;
-            border: 1px solid #E1E6E4;
+            border: 2px solid #d4e8f0;
             border-radius: 12px;
-            padding: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0, 168, 168, 0.08);
         }
 
         .card h2 {
             font-family: 'Space Grotesk', sans-serif;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 20px;
+            color: #00a8a8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .card-content {
@@ -188,35 +236,46 @@
 
         .input-group input {
             padding: 10px 12px;
-            border: 1px solid #E1E6E4;
+            border: 2px solid #d4e8f0;
             border-radius: 8px;
             width: 80px;
+            font-family: 'Inter', sans-serif;
         }
 
         .btn-primary {
-            padding: 12px 16px;
-            background: #0EA5E9;
+            padding: 12px 18px;
+            background: linear-gradient(135deg, #0084d4 0%, #0066b3 100%);
             color: #fff;
             border: none;
             border-radius: 8px;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 132, 212, 0.3);
         }
 
         .btn-primary:disabled {
-            background: #9CA3AF;
+            background: #b0bec5;
             cursor: not-allowed;
             opacity: 0.6;
+            transform: none;
         }
 
         .info-box {
-            background: #E0F2FE;
-            border: 1px solid #0EA5E9;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fffe 100%);
+            border: 2px solid #00c9c3;
             border-radius: 8px;
-            padding: 12px;
+            padding: 14px;
             font-size: 12px;
-            color: #0EA5E9;
+            color: #00a8a8;
+            font-weight: 600;
         }
 
         .requests-list {
@@ -228,11 +287,12 @@
         }
 
         .request-item {
-            background: #F3F4F6;
-            border: 1px solid #E1E6E4;
+            background: linear-gradient(135deg, #f0f9f9 0%, #f5f5ff 100%);
+            border: 1px solid #d4e8f0;
             border-radius: 8px;
             padding: 12px;
             font-size: 12px;
+            border-left: 4px solid #00c9c3;
         }
 
         .staff-grid {
@@ -243,27 +303,33 @@
         }
 
         .staff-card {
-            background: #F3F4F6;
-            border: 1px solid #E1E6E4;
+            background: #f8fbfc;
+            border: 2px solid #d4e8f0;
             border-radius: 8px;
-            padding: 12px;
+            padding: 14px;
             text-align: center;
+            transition: all 0.3s;
+        }
+
+        .staff-card:hover {
+            transform: translateY(-2px);
         }
 
         .staff-card.active {
-            background: #E0F2FE;
-            border-color: #0EA5E9;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fffe 100%);
+            border-color: #00c9c3;
+            box-shadow: 0 4px 12px rgba(0, 201, 195, 0.15);
         }
 
         .staff-count {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
-            color: #6B7580;
+            color: #2c5f7f;
             margin: 8px 0;
         }
 
         .staff-card.active .staff-count {
-            color: #0EA5E9;
+            color: #00a8a8;
         }
 
         /* STAFF CALENDAR TABLE */
@@ -271,70 +337,84 @@
             width: 100%;
             border-collapse: collapse;
             background: #FFFFFF;
+            border-radius: 8px;
+            overflow: hidden;
         }
 
         .calendar-table thead th {
-            background: #F3F4F6;
-            padding: 12px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 50%, #e0f2f1 100%);
+            padding: 14px;
             text-align: center;
             font-size: 12px;
-            font-weight: 600;
-            border: 1px solid #E1E6E4;
-            color: #6B7580;
+            font-weight: 700;
+            border-bottom: 2px solid #d4e8f0;
+            color: #00a8a8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .calendar-table tbody td {
-            border: 1px solid #E1E6E4;
-            padding: 12px;
+            border: 1px solid #e8f1f5;
+            padding: 14px;
             vertical-align: top;
+            background: #fafbfc;
+        }
+
+        .calendar-table tbody tr:nth-child(odd) td {
+            background: #f8fbfc;
         }
 
         .week-label {
             font-size: 12px;
-            font-weight: 600;
-            color: #6B7580;
-            width: 60px;
-            background: #F3F4F6;
+            font-weight: 700;
+            color: #00a8a8;
+            width: 70px;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fffe 100%);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .day-cell {
-            min-height: 120px;
+            min-height: 130px;
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
 
         .shift-option {
-            padding: 8px;
-            border: 1px solid #E1E6E4;
+            padding: 8px 6px;
+            border: 2px solid #d4e8f0;
             border-radius: 6px;
             font-size: 11px;
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
-            background: #FFFFFF;
-        }
-
-        .shift-option:hover {
-            background: #F0FFFE;
-        }
-
-        .shift-option.on {
-            background: #0EA5E9;
-            border-color: #0EA5E9;
-            color: #fff;
+            background: #fff;
             font-weight: 600;
         }
 
+        .shift-option:hover {
+            border-color: #00c9c3;
+            background: #f0fffe;
+        }
+
+        .shift-option.on {
+            background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
+            border-color: #00a8a8;
+            color: #fff;
+        }
+
         .shift-option.off {
-            background: #F3F4F6;
-            color: #6B7580;
+            background: linear-gradient(135deg, #ffe0d6 0%, #ffd9cc 100%);
+            border-color: #ff9f7f;
+            color: #d64a3a;
         }
 
         .shift-label {
-            font-size: 10px;
-            color: #999;
+            font-size: 9px;
+            color: #2c5f7f;
             font-weight: 500;
+            margin-top: 2px;
         }
 
         .shift-option.on .shift-label {
@@ -348,31 +428,47 @@
         }
 
         .btn-save {
-            padding: 12px 24px;
-            background: #0EA5E9;
+            padding: 13px 26px;
+            background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
             color: #fff;
             border: none;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 201, 195, 0.3);
         }
 
         .btn-save:disabled {
-            background: #9CA3AF;
+            background: #b0bec5;
             cursor: not-allowed;
             opacity: 0.6;
+            transform: none;
         }
 
         .btn-cancel {
-            padding: 12px 24px;
-            background: none;
-            border: 1px solid #E1E6E4;
-            color: #6B7580;
+            padding: 13px 26px;
+            background: #f0f4f8;
+            border: 2px solid #d4e8f0;
+            color: #2c5f7f;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 700;
             cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+
+        .btn-cancel:hover {
+            background: #e3f2fd;
         }
 
         .btn-cancel:disabled {
@@ -383,8 +479,9 @@
         .saved-text {
             margin-left: auto;
             font-size: 13px;
-            color: #6B7580;
+            color: #00a8a8;
             align-self: center;
+            font-weight: 700;
         }
 
         .hidden {
@@ -399,12 +496,6 @@
                 flex-direction: column;
                 gap: 16px;
             }
-            .calendar-table {
-                font-size: 12px;
-            }
-            .calendar-table td {
-                padding: 8px;
-            }
         }
     </style>
 </head>
@@ -415,7 +506,7 @@
     <div class="login-card">
         <h1>Shift Scheduler</h1>
         <div class="login-form">
-            <p style="text-align: center; margin-bottom: 24px; color: #6B7580;">Are you a Staff or Admin?</p>
+            <p style="text-align: center; margin-bottom: 28px; color: #2c5f7f; font-weight: 600; font-size: 15px;">Are you a Staff or Admin?</p>
             <button class="btn-login staff" onclick="goToStaffLogin()">Staff Login</button>
             <button class="btn-login admin" onclick="goToAdminLogin()">Admin Login</button>
         </div>
@@ -462,7 +553,7 @@
             <button class="btn-login admin" onclick="loginAdmin()">Login</button>
             <button class="btn-back" onclick="backToChoice()">← Back</button>
             <div class="demo-text">
-                Demo: username <code style="background: #f0f0f0; padding: 2px 4px;">admin</code>, password <code style="background: #f0f0f0; padding: 2px 4px;">admin123</code>
+                Demo: username <code style="background: #f0f4f8; padding: 2px 6px; border-radius: 4px;">admin</code> password <code style="background: #f0f4f8; padding: 2px 6px; border-radius: 4px;">admin123</code>
             </div>
         </div>
     </div>
@@ -473,7 +564,7 @@
     <div class="header">
         <div class="header-content">
             <div>
-                <div style="font-size: 12px; color: #6B7580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Admin Dashboard</div>
+                <div class="header-label">Admin Dashboard</div>
                 <h1>Control Center</h1>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
@@ -489,13 +580,13 @@
                     <div class="form-group">
                         <label style="font-size: 13px;">How many weeks ahead for staff to request?</label>
                         <div class="input-group">
-                            <input type="number" id="weeksInput" min="1" max="20" value="2">
-                            <span style="font-size: 13px; color: #6B7580;">weeks</span>
+                            <input type="number" id="weeksInput" min="1" max="20" value="4">
+                            <span style="font-size: 13px; color: #2c5f7f; font-weight: 600;">weeks</span>
                         </div>
                     </div>
-                    <button class="btn-primary" onclick="updateWeeks()">Update weeks</button>
+                    <button class="btn-primary" onclick="updateWeeks()">Update Weeks</button>
                     <div class="info-box">
-                        ℹ️ Staff will see <strong id="weeksDisplay">2</strong> weeks of shifts to request
+                        Staff will see <strong id="weeksDisplay">4</strong> weeks of shifts to request
                     </div>
                 </div>
             </div>
@@ -504,13 +595,13 @@
             <div class="card">
                 <h2>Live Shift Requests</h2>
                 <div id="staffStats" class="staff-grid"></div>
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 12px; color: #6B7580;">
-                    All requests (<span id="requestCount">0</span>)
+                <div style="font-size: 12px; font-weight: 700; margin-bottom: 12px; color: #00a8a8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    All Requests (<span id="requestCount">0</span>)
                 </div>
                 <div id="requestsList" class="requests-list">
-                    <div style="padding: 24px; text-align: center; color: #6B7580; font-size: 13px;">
-                        <div style="margin-bottom: 8px;">⏳ No requests yet</div>
-                        <div style="font-size: 12px;">Requests will appear here in real-time as staff submit</div>
+                    <div style="padding: 24px; text-align: center; color: #2c5f7f; font-size: 13px;">
+                        <div style="margin-bottom: 8px; font-weight: 600;">⏳ No requests yet</div>
+                        <div style="font-size: 12px;">Requests will appear here as staff submit</div>
                     </div>
                 </div>
             </div>
@@ -523,8 +614,8 @@
     <div class="header">
         <div class="header-content">
             <div>
-                <div style="font-size: 12px; color: #6B7580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;" id="staffGreeting">Hello, Staff</div>
-                <h1>Request your shifts</h1>
+                <div class="header-label" id="staffGreeting">Hello, Staff</div>
+                <h1>Request Your Shifts</h1>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -564,13 +655,13 @@
 
 <script>
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const SHIFTS = ["Morning (Umaga)", "Evening (Gabi)"];
+    const SHIFTS = ["Morning", "Evening"];
     const STAFF_LIST = ["Ana", "Ben", "Carla", "Dan", "Elena", "Franco", "Gabriel", "Hilda"];
     const ADMIN_CREDS = { username: "admin", password: "admin123" };
 
     let appState = {
         user: null,
-        adminWeeks: 2,
+        adminWeeks: 4,
         allRequests: [],
         selections: {},
         savedSelections: {}
@@ -649,9 +740,9 @@
 
         const statsHtml = STAFF_LIST.map(s => `
             <div class="staff-card ${stats[s] > 0 ? 'active' : ''}">
-                <div style="font-size: 12px; color: #6B7580;">${s}</div>
+                <div style="font-size: 12px; color: #2c5f7f; font-weight: 600;">${s}</div>
                 <div class="staff-count">${stats[s]}</div>
-                <div style="font-size: 10px; color: #6B7580;">request${stats[s] !== 1 ? 's' : ''}</div>
+                <div style="font-size: 10px; color: #2c5f7f;">request${stats[s] !== 1 ? 's' : ''}</div>
             </div>
         `).join('');
         document.getElementById('staffStats').innerHTML = statsHtml;
@@ -659,16 +750,16 @@
         document.getElementById('requestCount').textContent = appState.allRequests.length;
         if (appState.allRequests.length === 0) {
             document.getElementById('requestsList').innerHTML = `
-                <div style="padding: 24px; text-align: center; color: #6B7580; font-size: 13px;">
-                    <div style="margin-bottom: 8px;">⏳ No requests yet</div>
-                    <div style="font-size: 12px;">Requests will appear here in real-time as staff submit</div>
+                <div style="padding: 24px; text-align: center; color: #2c5f7f; font-size: 13px;">
+                    <div style="margin-bottom: 8px; font-weight: 600;">⏳ No requests yet</div>
+                    <div style="font-size: 12px;">Requests will appear here as staff submit</div>
                 </div>
             `;
         } else {
             const html = [...appState.allRequests].reverse().map(req => `
                 <div class="request-item">
                     <strong>${req.staff} · ${req.week} · ${req.day} ${req.shift}</strong>
-                    <div style="color: #6B7580; font-size: 11px;">${req.time}</div>
+                    <div style="color: #2c5f7f; font-size: 11px;">${req.time}</div>
                 </div>
             `).join('');
             document.getElementById('requestsList').innerHTML = html;
@@ -700,7 +791,7 @@
                     const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
                     
                     html += `<button class="shift-option ${className}" onclick="toggleSelection(${week}, '${day}', '${shift}')">
-                        <div style="font-weight: 600; font-size: 11px;">${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
+                        <div>${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
                         <div class="shift-label">${shift}</div>
                     </button>`;
                 });
