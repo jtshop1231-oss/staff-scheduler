@@ -18,10 +18,6 @@
             min-height: 100vh;
         }
 
-        body.light-bg {
-            background: linear-gradient(135deg, #f5f7ff 0%, #e8f4f8 100%);
-        }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -234,9 +230,9 @@
             background: #f0f4f8;
         }
 
-        /* PAGES WITH LIGHT BACKGROUND */
-        .page-with-light-bg {
-            background: linear-gradient(135deg, #f5f7ff 0%, #e8f4f8 100%) !important;
+        /* PAGES WITH MIDNIGHT BLUE BACKGROUND */
+        .page-with-midnight-bg {
+            background: #191970 !important;
             min-height: 100vh;
         }
 
@@ -386,9 +382,9 @@
 
         .calendar-table thead th {
             background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 50%, #e0f2f1 100%);
-            padding: 14px;
+            padding: 12px 8px;
             text-align: center;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             border-bottom: 2px solid #d4e8f0;
             color: #00a8a8;
@@ -398,38 +394,35 @@
 
         .calendar-table tbody td {
             border: 1px solid #e8f1f5;
-            padding: 14px;
+            padding: 12px 8px;
             vertical-align: top;
             background: #fafbfc;
+            text-align: center;
         }
 
         .calendar-table tbody tr:nth-child(odd) td {
             background: #f8fbfc;
         }
 
-        .week-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #00a8a8;
-            width: 70px;
-            background: linear-gradient(135deg, #e0f2fe 0%, #f0fffe 100%);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .day-cell {
-            min-height: 80px;
+        .date-cell {
+            min-height: 100px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             justify-content: center;
         }
 
+        .date-label {
+            font-size: 10px;
+            color: #00a8a8;
+            font-weight: 700;
+        }
+
         .shift-option {
-            padding: 10px 6px;
+            padding: 8px 4px;
             border: 2px solid #d4e8f0;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
@@ -602,7 +595,7 @@
 </div>
 
 <!-- ADMIN DASHBOARD -->
-<div id="adminDashboard" class="hidden page-with-light-bg">
+<div id="adminDashboard" class="hidden page-with-midnight-bg">
     <div class="header">
         <div class="header-content">
             <div>
@@ -652,7 +645,7 @@
 </div>
 
 <!-- STAFF CALENDAR -->
-<div id="staffCalendar" class="hidden page-with-light-bg">
+<div id="staffCalendar" class="hidden page-with-midnight-bg">
     <div class="header">
         <div class="header-content">
             <div>
@@ -670,7 +663,6 @@
                 <table class="calendar-table">
                     <thead>
                         <tr>
-                            <th>Week</th>
                             <th>Sunday</th>
                             <th>Monday</th>
                             <th>Tuesday</th>
@@ -837,33 +829,47 @@
         let html = '';
         const shiftType = appState.user.shift === 'day' ? 'Day' : 'Night';
 
-        for (let week = 1; week <= appState.adminWeeks; week++) {
-            html += `<tr>
-                <td class="week-label">Week ${week}</td>`;
+        // Start date (today or any reference date)
+        const startDate = new Date(2024, 0, 7); // January 7, 2024 (Sunday)
+        let currentDate = new Date(startDate);
+        let dayCount = 0;
+        const totalDays = appState.adminWeeks * 7;
+
+        while (dayCount < totalDays) {
+            html += '<tr>';
             
             for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-                const day = DAYS[dayIndex];
-                html += `<td><div class="day-cell">`;
+                if (dayCount >= totalDays) break;
+
+                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dayName = DAYS[dayIndex];
+                const dateKey = `${currentDate.getTime()}-${shiftType}`;
                 
-                const key = `${week}-${day}-${shiftType}`;
+                html += `<td><div class="date-cell">
+                    <div class="date-label">${dateStr}</div>`;
+                
+                const key = dateKey;
                 const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
                 const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
                 
-                html += `<button class="shift-option ${className}" onclick="toggleSelection(${week}, '${day}', '${shiftType}')">
+                html += `<button class="shift-option ${className}" onclick="toggleSelection('${key}', '${shiftType}')">
                     <div>${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
                 </button>`;
                 
                 html += `</div></td>`;
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayCount++;
             }
-            html += `</tr>`;
+            
+            html += '</tr>';
         }
 
         body.innerHTML = html;
         updateSaveButtonState();
     }
 
-    function toggleSelection(week, day, shift) {
-        const key = `${week}-${day}-${shift}`;
+    function toggleSelection(key, shift) {
         const current = appState.selections[key] ?? appState.savedSelections[key] ?? null;
         let next = null;
         if (current === null) next = 'on';
@@ -890,12 +896,15 @@
         const shiftType = appState.user.shift === 'day' ? 'Day' : 'Night';
 
         Object.entries(appState.selections).forEach(([key, value]) => {
-            const [week, day] = key.split('-');
             if (value === 'on' && !appState.savedSelections[key]) {
+                const dateTime = parseInt(key.split('-')[0]);
+                const date = new Date(dateTime);
+                const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                
                 appState.allRequests.push({
                     staff: appState.user.name,
-                    week: `Week ${week}`,
-                    day,
+                    week: `Week ${Math.floor((dateTime - new Date(2024, 0, 7).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1}`,
+                    day: dateStr,
                     shift: shiftType,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 });
