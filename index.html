@@ -14,9 +14,12 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #f5f7ff 0%, #e8f4f8 100%);
             color: #1a1a1a;
             min-height: 100vh;
+        }
+
+        body.light-bg {
+            background: linear-gradient(135deg, #f5f7ff 0%, #e8f4f8 100%);
         }
 
         .container {
@@ -25,13 +28,13 @@
             padding: 24px;
         }
 
-        /* LOGIN SCREENS */
+        /* LOGIN SCREENS - DARK BACKGROUND */
         .login-screen {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 50%, #e0f2f1 100%);
+            background: #0F1B28 !important;
         }
 
         .login-card {
@@ -92,6 +95,35 @@
             background: #fff;
         }
 
+        .shift-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .shift-btn {
+            padding: 14px;
+            border: 2px solid #d4e8f0;
+            border-radius: 8px;
+            background: #f8fbfc;
+            color: #2c5f7f;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .shift-btn:hover {
+            border-color: #00c9c3;
+            background: #f0fffe;
+        }
+
+        .shift-btn.selected {
+            background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
+            border-color: #00a8a8;
+            color: #fff;
+        }
+
         .btn-login {
             padding: 13px 16px;
             color: #fff;
@@ -121,6 +153,11 @@
         .btn-login.admin:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0, 132, 212, 0.3);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .btn-back {
@@ -195,6 +232,12 @@
 
         .logout-btn:hover {
             background: #f0f4f8;
+        }
+
+        /* PAGES WITH LIGHT BACKGROUND */
+        .page-with-light-bg {
+            background: linear-gradient(135deg, #f5f7ff 0%, #e8f4f8 100%) !important;
+            min-height: 100vh;
         }
 
         /* ADMIN DASHBOARD */
@@ -375,17 +418,18 @@
         }
 
         .day-cell {
-            min-height: 130px;
+            min-height: 80px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            justify-content: center;
         }
 
         .shift-option {
-            padding: 8px 6px;
+            padding: 10px 6px;
             border: 2px solid #d4e8f0;
             border-radius: 6px;
-            font-size: 11px;
+            font-size: 12px;
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
@@ -408,17 +452,6 @@
             background: linear-gradient(135deg, #ffe0d6 0%, #ffd9cc 100%);
             border-color: #ff9f7f;
             color: #d64a3a;
-        }
-
-        .shift-label {
-            font-size: 9px;
-            color: #2c5f7f;
-            font-weight: 500;
-            margin-top: 2px;
-        }
-
-        .shift-option.on .shift-label {
-            color: #fff;
         }
 
         .button-group {
@@ -531,7 +564,16 @@
                     <option>Hilda</option>
                 </select>
             </div>
-            <button class="btn-login staff" onclick="loginStaff()">Login</button>
+
+            <div class="form-group">
+                <label>Select your shift preference</label>
+                <div class="shift-options">
+                    <button class="shift-btn" id="dayShiftBtn" onclick="selectShift('day')">Day Shift</button>
+                    <button class="shift-btn" id="nightShiftBtn" onclick="selectShift('night')">Night Shift</button>
+                </div>
+            </div>
+
+            <button class="btn-login staff" id="loginBtn" onclick="loginStaff()" disabled>Login</button>
             <button class="btn-back" onclick="backToChoice()">← Back</button>
         </div>
     </div>
@@ -560,7 +602,7 @@
 </div>
 
 <!-- ADMIN DASHBOARD -->
-<div id="adminDashboard" class="hidden">
+<div id="adminDashboard" class="hidden page-with-light-bg">
     <div class="header">
         <div class="header-content">
             <div>
@@ -580,13 +622,13 @@
                     <div class="form-group">
                         <label style="font-size: 13px;">How many weeks ahead for staff to request?</label>
                         <div class="input-group">
-                            <input type="number" id="weeksInput" min="1" max="20" value="4">
+                            <input type="number" id="weeksInput" min="1" max="20" value="1">
                             <span style="font-size: 13px; color: #2c5f7f; font-weight: 600;">weeks</span>
                         </div>
                     </div>
                     <button class="btn-primary" onclick="updateWeeks()">Update Weeks</button>
                     <div class="info-box">
-                        Staff will see <strong id="weeksDisplay">4</strong> weeks of shifts to request
+                        Staff will see <strong id="weeksDisplay">1</strong> week of shifts to request
                     </div>
                 </div>
             </div>
@@ -610,7 +652,7 @@
 </div>
 
 <!-- STAFF CALENDAR -->
-<div id="staffCalendar" class="hidden">
+<div id="staffCalendar" class="hidden page-with-light-bg">
     <div class="header">
         <div class="header-content">
             <div>
@@ -623,7 +665,7 @@
 
     <div class="container">
         <div class="card">
-            <h2>Schedule Calendar</h2>
+            <h2 id="shiftTitle">Schedule Calendar</h2>
             <div style="overflow-x: auto;">
                 <table class="calendar-table">
                     <thead>
@@ -655,13 +697,13 @@
 
 <script>
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const SHIFTS = ["Morning", "Evening"];
     const STAFF_LIST = ["Ana", "Ben", "Carla", "Dan", "Elena", "Franco", "Gabriel", "Hilda"];
     const ADMIN_CREDS = { username: "admin", password: "admin123" };
 
     let appState = {
         user: null,
-        adminWeeks: 4,
+        selectedShift: null,
+        adminWeeks: 1,
         allRequests: [],
         selections: {},
         savedSelections: {}
@@ -671,6 +713,17 @@
     function goToStaffLogin() {
         document.getElementById('choiceScreen').classList.add('hidden');
         document.getElementById('staffLoginScreen').classList.remove('hidden');
+        appState.selectedShift = null;
+        document.getElementById('dayShiftBtn').classList.remove('selected');
+        document.getElementById('nightShiftBtn').classList.remove('selected');
+        document.getElementById('loginBtn').disabled = true;
+    }
+
+    function selectShift(shift) {
+        appState.selectedShift = shift;
+        document.getElementById('dayShiftBtn').classList.toggle('selected', shift === 'day');
+        document.getElementById('nightShiftBtn').classList.toggle('selected', shift === 'night');
+        document.getElementById('loginBtn').disabled = false;
     }
 
     function goToAdminLogin() {
@@ -688,7 +741,11 @@
 
     function loginStaff() {
         const name = document.getElementById('staffSelect').value;
-        appState.user = { role: 'staff', name };
+        if (!appState.selectedShift) {
+            alert('Please select a shift');
+            return;
+        }
+        appState.user = { role: 'staff', name, shift: appState.selectedShift };
         showStaffCalendar();
     }
 
@@ -719,11 +776,13 @@
         document.getElementById('adminDashboard').classList.add('hidden');
         document.getElementById('staffCalendar').classList.remove('hidden');
         document.getElementById('staffGreeting').textContent = `Hello, ${appState.user.name}`;
+        document.getElementById('shiftTitle').textContent = `${appState.user.shift === 'day' ? 'Day' : 'Night'} Shift Schedule`;
         renderStaffCalendar();
     }
 
     function logout() {
         appState.user = null;
+        appState.selectedShift = null;
         appState.selections = {};
         document.getElementById('choiceScreen').classList.remove('hidden');
         document.getElementById('staffLoginScreen').classList.add('hidden');
@@ -776,6 +835,7 @@
     function renderStaffCalendar() {
         const body = document.getElementById('calendarBody');
         let html = '';
+        const shiftType = appState.user.shift === 'day' ? 'Day' : 'Night';
 
         for (let week = 1; week <= appState.adminWeeks; week++) {
             html += `<tr>
@@ -785,16 +845,13 @@
                 const day = DAYS[dayIndex];
                 html += `<td><div class="day-cell">`;
                 
-                SHIFTS.forEach(shift => {
-                    const key = `${week}-${day}-${shift}`;
-                    const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
-                    const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
-                    
-                    html += `<button class="shift-option ${className}" onclick="toggleSelection(${week}, '${day}', '${shift}')">
-                        <div>${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
-                        <div class="shift-label">${shift}</div>
-                    </button>`;
-                });
+                const key = `${week}-${day}-${shiftType}`;
+                const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
+                const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
+                
+                html += `<button class="shift-option ${className}" onclick="toggleSelection(${week}, '${day}', '${shiftType}')">
+                    <div>${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
+                </button>`;
                 
                 html += `</div></td>`;
             }
@@ -830,14 +887,16 @@
     function saveSelection() {
         if (!hasChanges()) return;
 
+        const shiftType = appState.user.shift === 'day' ? 'Day' : 'Night';
+
         Object.entries(appState.selections).forEach(([key, value]) => {
-            const [week, day, shift] = key.split('-');
+            const [week, day] = key.split('-');
             if (value === 'on' && !appState.savedSelections[key]) {
                 appState.allRequests.push({
                     staff: appState.user.name,
                     week: `Week ${week}`,
                     day,
-                    shift,
+                    shift: shiftType,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 });
             }
