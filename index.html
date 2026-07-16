@@ -800,10 +800,23 @@
         document.getElementById('staffCalendar').classList.remove('hidden');
         document.getElementById('staffGreeting').textContent = `Hello, ${appState.user.name}`;
         document.getElementById('shiftTitle').textContent = `${appState.user.shift === 'day' ? 'Day' : 'Night'} Shift Schedule`;
+        
+        // Clear any saved text timeout
+        if (savedTextTimeout) {
+            clearTimeout(savedTextTimeout);
+            savedTextTimeout = null;
+        }
+        
         renderStaffCalendar();
     }
 
     function logout() {
+        // Clear any saved text timeout
+        if (savedTextTimeout) {
+            clearTimeout(savedTextTimeout);
+            savedTextTimeout = null;
+        }
+        
         appState.user = null;
         appState.selectedShift = null;
         appState.selections = {};
@@ -916,6 +929,12 @@
     }
 
     function toggleSelection(selectElement) {
+        // Clear any saved text timeout when user makes changes
+        if (savedTextTimeout) {
+            clearTimeout(savedTextTimeout);
+            savedTextTimeout = null;
+        }
+        
         const key = selectElement.getAttribute('data-key');
         const value = selectElement.value;
         appState.selections[key] = value || null;
@@ -932,17 +951,33 @@
         return JSON.stringify(appState.selections) !== JSON.stringify(appState.savedSelections);
     }
 
+    let savedTextTimeout = null;
+
     function updateSaveButtonState() {
         const changed = hasChanges();
         document.getElementById('saveBtn').disabled = !changed;
         document.getElementById('cancelBtn').disabled = !changed;
         const savedText = document.getElementById('savedText');
+        
+        // Clear any existing timeout
+        if (savedTextTimeout) {
+            clearTimeout(savedTextTimeout);
+            savedTextTimeout = null;
+        }
+        
         if (changed) {
             savedText.classList.remove('visible');
             savedText.textContent = '';
         } else {
             savedText.classList.add('visible');
             savedText.textContent = '✓ Saved';
+            
+            // Auto-hide after 6 seconds
+            savedTextTimeout = setTimeout(() => {
+                savedText.classList.remove('visible');
+                savedText.textContent = '';
+                savedTextTimeout = null;
+            }, 6000);
         }
     }
 
@@ -973,6 +1008,11 @@
     }
 
     function cancelSelection() {
+        // Clear any saved text timeout
+        if (savedTextTimeout) {
+            clearTimeout(savedTextTimeout);
+            savedTextTimeout = null;
+        }
         appState.selections = { ...appState.savedSelections };
         renderStaffCalendar();
     }
