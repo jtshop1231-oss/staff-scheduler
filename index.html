@@ -437,11 +437,18 @@
             transition: all 0.2s;
             background: #fff;
             font-weight: 600;
+            appearance: none;
+            width: 100%;
+            font-family: 'Inter', sans-serif;
         }
 
         .shift-option:hover {
             border-color: #00c9c3;
-            background: #f0fffe;
+        }
+
+        .shift-option:focus {
+            outline: none;
+            border-color: #00a8a8;
         }
 
         .shift-option.on {
@@ -454,6 +461,16 @@
             background: linear-gradient(135deg, #ffe0d6 0%, #ffd9cc 100%);
             border-color: #ff9f7f;
             color: #d64a3a;
+        }
+
+        .shift-option option {
+            background: #fff;
+            color: #2c5f7f;
+        }
+
+        .shift-option option:checked {
+            background: #00c9c3;
+            color: #fff;
         }
 
         .button-group {
@@ -866,9 +883,11 @@
                 const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
                 const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
                 
-                html += `<button class="shift-option ${className}" onclick="toggleSelection('${key}', '${shiftType}')">
-                    <div>${val === 'on' ? '✓ ON' : val === 'off' ? '✗ OFF' : 'Select'}</div>
-                </button>`;
+                html += `<select class="shift-option ${className}" data-key="${key}" onchange="toggleSelection(this)">
+                    <option value="">Select</option>
+                    <option value="on">ON</option>
+                    <option value="off">OFF</option>
+                </select>`;
                 
                 html += `</div></td>`;
                 
@@ -880,17 +899,33 @@
         }
 
         body.innerHTML = html;
+        
+        // Set selected values after rendering
+        setTimeout(() => {
+            document.querySelectorAll('.shift-option').forEach(select => {
+                const key = select.getAttribute('data-key');
+                const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
+                select.value = val || '';
+                select.classList.remove('on', 'off');
+                if (val === 'on') select.classList.add('on');
+                if (val === 'off') select.classList.add('off');
+            });
+        }, 10);
+        
         updateSaveButtonState();
     }
 
-    function toggleSelection(key, shift) {
-        const current = appState.selections[key] ?? appState.savedSelections[key] ?? null;
-        let next = null;
-        if (current === null) next = 'on';
-        else if (current === 'on') next = 'off';
-        else next = null;
-        appState.selections[key] = next;
-        renderStaffCalendar();
+    function toggleSelection(selectElement) {
+        const key = selectElement.getAttribute('data-key');
+        const value = selectElement.value;
+        appState.selections[key] = value || null;
+        
+        // Update styling
+        selectElement.classList.remove('on', 'off');
+        if (value === 'on') selectElement.classList.add('on');
+        if (value === 'off') selectElement.classList.add('off');
+        
+        updateSaveButtonState();
     }
 
     function hasChanges() {
