@@ -576,17 +576,8 @@
         <h1>Staff Login</h1>
         <div class="login-form">
             <div class="form-group">
-                <label>Select your name</label>
-                <select id="staffSelect">
-                    <option>Ana</option>
-                    <option>Ben</option>
-                    <option>Carla</option>
-                    <option>Dan</option>
-                    <option>Elena</option>
-                    <option>Franco</option>
-                    <option>Gabriel</option>
-                    <option>Hilda</option>
-                </select>
+                <label>Enter your name</label>
+                <input type="text" id="staffName" placeholder="Your name">
             </div>
 
             <div class="form-group">
@@ -737,6 +728,7 @@
         document.getElementById('choiceScreen').classList.add('hidden');
         document.getElementById('staffLoginScreen').classList.remove('hidden');
         appState.selectedShift = null;
+        document.getElementById('staffName').value = '';
         document.getElementById('dayShiftBtn').classList.remove('selected');
         document.getElementById('nightShiftBtn').classList.remove('selected');
         document.getElementById('loginBtn').disabled = true;
@@ -763,7 +755,11 @@
     }
 
     function loginStaff() {
-        const name = document.getElementById('staffSelect').value;
+        const name = document.getElementById('staffName').value.trim();
+        if (!name) {
+            alert('Please enter your name');
+            return;
+        }
         if (!appState.selectedShift) {
             alert('Please select a shift');
             return;
@@ -1030,7 +1026,7 @@
             
             // Staff login screen
             if (!document.getElementById('staffLoginScreen').classList.contains('hidden')) {
-                if (activeElement.id === 'staffSelect' || activeElement === document.getElementById('loginBtn')) {
+                if (activeElement.id === 'staffName' || activeElement === document.getElementById('loginBtn')) {
                     loginStaff();
                 }
             }
