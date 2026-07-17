@@ -463,6 +463,12 @@
             color: #d64a3a;
         }
 
+        .shift-option.available {
+            background: linear-gradient(135deg, #b3e5fc 0%, #80deea 100%);
+            border-color: #0097a7;
+            color: #006064;
+        }
+
         .shift-option option {
             background: #fff;
             color: #2c5f7f;
@@ -826,16 +832,18 @@
     // ADMIN FUNCTIONS
     function renderAdminDashboard() {
         const stats = {};
-        STAFF_LIST.forEach(s => stats[s] = 0);
         appState.allRequests.forEach(r => stats[r.staff] = (stats[r.staff] || 0) + 1);
 
-        const statsHtml = STAFF_LIST.map(s => `
-            <div class="staff-card ${stats[s] > 0 ? 'active' : ''}">
+        // Get unique staff names and sort them
+        const staffNames = Object.keys(stats).sort();
+
+        const statsHtml = staffNames.length > 0 ? staffNames.map(s => `
+            <div class="staff-card active">
                 <div style="font-size: 11px; color: #2c5f7f; font-weight: 600;">${s}</div>
                 <div class="staff-count">${stats[s]}</div>
                 <div style="font-size: 9px; color: #2c5f7f;">request${stats[s] !== 1 ? 's' : ''}</div>
             </div>
-        `).join('');
+        `).join('') : '<div style="padding: 20px; text-align: center; color: #2c5f7f; font-size: 12px;">No submissions yet</div>';
         document.getElementById('staffStats').innerHTML = statsHtml;
 
         document.getElementById('requestCount').textContent = appState.allRequests.length;
@@ -849,7 +857,8 @@
         } else {
             const html = [...appState.allRequests].reverse().map(req => `
                 <div class="request-item">
-                    <strong>${req.staff} · ${req.week} · ${req.day} ${req.shift}</strong>
+                    <strong>${req.staff} · ${req.week} · ${req.day}</strong>
+                    <div style="color: #2c5f7f; font-size: 11px; font-weight: 700;">${req.request} (${req.shift})</div>
                     <div style="color: #2c5f7f; font-size: 10px;">${req.time}</div>
                 </div>
             `).join('');
@@ -890,12 +899,14 @@
                 
                 const key = dateKey;
                 const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
-                const className = val === 'on' ? 'on' : val === 'off' ? 'off' : '';
+                const className = val === 'on' ? 'on' : (val === 'off-pto' || val === 'off-no-pto') ? 'off' : val === 'available' ? 'available' : '';
                 
                 html += `<select class="shift-option ${className}" data-key="${key}" onchange="toggleSelection(this)">
                     <option value="">Select</option>
-                    <option value="on">ON</option>
-                    <option value="off">OFF</option>
+                    <option value="on">Requesting ON</option>
+                    <option value="off-pto">Requesting OFF with PTO</option>
+                    <option value="off-no-pto">Requesting OFF without PTO</option>
+                    <option value="available">Available</option>
                 </select>`;
                 
                 html += `</div></td>`;
@@ -917,7 +928,7 @@
                 select.value = val || '';
                 select.classList.remove('on', 'off');
                 if (val === 'on') select.classList.add('on');
-                if (val === 'off') select.classList.add('off');
+                if (val === 'off-pto' || val === 'off-no-pto') select.classList.add('off');
             });
         }, 10);
         
@@ -935,10 +946,15 @@
         const value = selectElement.value;
         appState.selections[key] = value || null;
         
-        // Update styling
-        selectElement.classList.remove('on', 'off');
-        if (value === 'on') selectElement.classList.add('on');
-        if (value === 'off') selectElement.classList.add('off');
+        // Update styling based on selection
+        selectElement.classList.remove('on', 'off', 'available');
+        if (value === 'on') {
+            selectElement.classList.add('on');
+        } else if (value === 'off-pto' || value === 'off-no-pto') {
+            selectElement.classList.add('off');
+        } else if (value === 'available') {
+            selectElement.classList.add('available');
+        }
         
         updateSaveButtonState();
     }
@@ -989,16 +1005,24 @@
         const shiftType = appState.user.shift === 'day' ? 'Day' : 'Night';
 
         Object.entries(appState.selections).forEach(([key, value]) => {
-            if (value === 'on' && !appState.savedSelections[key]) {
+            if (value && !appState.savedSelections[key]) {
                 const dateTime = parseInt(key.split('-')[0]);
                 const date = new Date(dateTime);
                 const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                
+                // Map value to display text
+                let requestType = '';
+                if (value === 'on') requestType = 'Requesting ON';
+                else if (value === 'off-pto') requestType = 'Requesting OFF (PTO)';
+                else if (value === 'off-no-pto') requestType = 'Requesting OFF (No PTO)';
+                else if (value === 'available') requestType = 'Available';
                 
                 appState.allRequests.push({
                     staff: appState.user.name,
                     week: `Week ${Math.floor((dateTime - new Date(2024, 0, 7).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1}`,
                     day: dateStr,
                     shift: shiftType,
+                    request: requestType,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 });
             }
