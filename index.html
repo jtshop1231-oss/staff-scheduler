@@ -926,9 +926,10 @@
                 const key = select.getAttribute('data-key');
                 const val = appState.selections[key] ?? appState.savedSelections[key] ?? null;
                 select.value = val || '';
-                select.classList.remove('on', 'off');
+                select.classList.remove('on', 'off', 'available');
                 if (val === 'on') select.classList.add('on');
                 if (val === 'off-pto' || val === 'off-no-pto') select.classList.add('off');
+                if (val === 'available') select.classList.add('available');
             });
         }, 10);
         
