@@ -984,6 +984,12 @@
     function saveSelection() {
         if (!hasChanges()) return;
 
+        // Clear any existing timeout before saving
+        if (savedTextTimeout) {
+            clearTimeout(savedTextTimeout);
+            savedTextTimeout = null;
+        }
+
         const shiftType = appState.user.shift === 'day' ? 'Day' : 'Night';
 
         Object.entries(appState.selections).forEach(([key, value]) => {
