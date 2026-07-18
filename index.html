@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Staff Scheduler - Telemetry Department</title>
+    <title>AI Staff Scheduler</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -17,117 +17,97 @@
             background: linear-gradient(135deg, #0F1B28 0%, #1a2a3a 100%);
             min-height: 100vh;
             color: #2c5f7f;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         /* HEADER */
         .header {
             background: linear-gradient(90deg, #87ceeb 0%, #b0e0e6 50%, #98fb98 100%);
-            padding: 20px;
+            padding: 12px 20px;
             text-align: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .header h1 {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             color: #0F1B28;
-            margin-bottom: 4px;
             font-family: 'Space Grotesk', sans-serif;
         }
 
-        .header p {
-            font-size: 13px;
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
             color: #003333;
             font-weight: 600;
-        }
-
-        .live-time {
-            font-size: 12px;
-            color: #006666;
-            margin-top: 8px;
-            font-weight: 600;
+            margin-top: 4px;
         }
 
         /* MAIN CONTAINER */
         .main-container {
             display: flex;
             gap: 20px;
-            padding: 20px;
-            max-width: 1600px;
-            margin: 0 auto;
-            min-height: calc(100vh - 120px);
+            padding: 16px 20px;
+            height: calc(100vh - 60px);
         }
 
-        /* LEFT COLUMN - LOGIN */
-        .column {
-            flex: 1;
-            min-width: 0;
+        /* LEFT SIDE - LOGIN */
+        .left-panel {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
         }
 
-        .column.left {
-            max-width: 450px;
-        }
-
-        .column.right {
-            flex: 1.2;
-        }
-
-        /* CARD STYLING */
         .card {
             background: #f5f9fc;
-            border-radius: 12px;
-            padding: 24px;
+            border-radius: 10px;
+            padding: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
         }
 
         .card h2 {
-            font-size: 18px;
+            font-size: 14px;
             color: #0084d4;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             font-weight: 700;
         }
 
-        .card h3 {
-            font-size: 14px;
-            color: #2c5f7f;
-            margin-top: 16px;
-            margin-bottom: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .card p {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 12px;
+            line-height: 1.4;
         }
 
         /* LOGIN FORM */
         .login-container {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .role-buttons {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
         .role-btn {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             border: 2px solid #d4e8f0;
-            border-radius: 8px;
+            border-radius: 6px;
             background: #fff;
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
-
-        .role-btn.staff {
-            color: #00a8a8;
         }
 
         .role-btn.staff.active {
@@ -136,30 +116,22 @@
             border-color: #00a8a8;
         }
 
-        .role-btn.admin {
-            color: #0084d4;
-        }
-
         .role-btn.admin.active {
             background: linear-gradient(135deg, #0084d4 0%, #005aa0 100%);
             color: #fff;
             border-color: #005aa0;
         }
 
-        .role-btn:hover {
-            border-color: #00c9c3;
-        }
-
         .form-group {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         .form-group label {
             display: block;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 700;
             color: #2c5f7f;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -167,10 +139,10 @@
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: 2px solid #d4e8f0;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             font-family: 'Inter', sans-serif;
             color: #2c5f7f;
         }
@@ -182,18 +154,34 @@
             box-shadow: 0 0 0 3px rgba(0, 201, 195, 0.1);
         }
 
-        .button-group {
+        .shift-buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 16px;
+            gap: 8px;
+        }
+
+        .shift-btn {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #d4e8f0;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shift-btn.active {
+            background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
+            color: #fff;
+            border-color: #00a8a8;
         }
 
         button {
-            flex: 1;
-            padding: 12px;
+            padding: 10px;
             border: none;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s;
@@ -209,7 +197,7 @@
         }
 
         .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 169, 168, 0.3);
         }
 
@@ -228,78 +216,54 @@
             background: #d4e8f0;
         }
 
-        /* APPROVED SCHEDULE */
-        .schedule-table {
+        /* CENTER PANEL - PREFERENCES */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .preference-section {
+            background: #f5f9fc;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            max-height: 100%;
+            overflow-y: auto;
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            table-layout: fixed;
-            margin-bottom: 20px;
         }
 
-        .schedule-table th {
-            background: #2c5f7f;
-            color: #fff;
-            padding: 10px;
+        .preference-section h2 {
+            text-align: center;
+            font-size: 16px;
+            color: #0084d4;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .preference-info {
             text-align: center;
             font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #666;
+            margin-bottom: 16px;
         }
 
-        .schedule-table td {
-            background: #fff;
-            padding: 12px;
-            text-align: center;
-            font-size: 11px;
-            border: 1px solid #d4e8f0;
-            vertical-align: middle;
-            min-height: 80px;
-        }
-
-        .date-cell {
-            font-weight: 700;
-            color: #00a8a8;
-            margin-bottom: 6px;
-        }
-
-        .shift-info {
-            font-size: 10px;
-            margin-bottom: 4px;
-        }
-
-        .shift-label {
-            font-weight: 700;
-            color: #2c5f7f;
-            display: block;
-            margin-bottom: 2px;
-        }
-
-        .staff-names {
-            color: #00a8a8;
-            font-weight: 600;
-        }
-
-        .no-assignment {
-            color: #999;
-            font-style: italic;
-            font-size: 10px;
-        }
-
-        /* PREFERENCE INPUT */
         .preference-header {
             background: #e8f4f8;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 14px;
+            text-align: center;
         }
 
         .preference-header h4 {
             color: #2c5f7f;
-            font-size: 12px;
-            margin-bottom: 4px;
+            font-size: 11px;
             font-weight: 700;
+            margin-bottom: 3px;
         }
 
         .preference-header p {
@@ -307,32 +271,45 @@
             color: #666;
         }
 
-        .preference-grid {
+        /* CALENDAR GRID */
+        .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
+            gap: 10px;
             margin-bottom: 16px;
+            justify-content: center;
+        }
+
+        .day-header {
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #2c5f7f;
+            text-transform: uppercase;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #d4e8f0;
         }
 
         .preference-cell {
-            aspect-ratio: 1;
+            aspect-ratio: 0.8;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             border: 2px solid #d4e8f0;
-            border-radius: 6px;
+            border-radius: 8px;
             background: #fff;
             cursor: pointer;
             transition: all 0.2s;
-            padding: 4px;
-            font-size: 9px;
-            min-height: 70px;
+            padding: 6px;
+            min-height: 80px;
+            font-size: 10px;
         }
 
         .preference-cell:hover {
             border-color: #00c9c3;
             background: #f0fffe;
+            transform: scale(1.05);
         }
 
         .preference-cell.selected-day {
@@ -354,17 +331,36 @@
             margin-bottom: 2px;
         }
 
-        .shift-badges {
-            font-size: 8px;
-            display: flex;
-            gap: 2px;
-        }
-
-        .badge {
-            padding: 2px 4px;
+        .shift-badge {
+            font-size: 9px;
+            padding: 2px 6px;
             border-radius: 3px;
             background: rgba(255,255,255,0.3);
             border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        /* BUTTONS */
+        .preference-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .preference-buttons button {
+            padding: 10px 20px;
+            min-width: 120px;
+        }
+
+        .saved-text {
+            font-size: 12px;
+            color: #00a8a8;
+            font-weight: 700;
+            display: none;
+            align-self: center;
+        }
+
+        .saved-text.visible {
+            display: inline;
         }
 
         /* HIDDEN */
@@ -372,57 +368,32 @@
             display: none !important;
         }
 
-        /* RESPONSIVE */
-        @media (max-width: 1200px) {
-            .main-container {
-                flex-direction: column;
-            }
-
-            .column.left {
-                max-width: 100%;
-            }
-
-            .preference-grid {
-                grid-template-columns: repeat(7, 1fr);
-            }
+        /* LOGGED IN VIEW */
+        .login-card {
+            transition: all 0.3s;
         }
 
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 20px;
-            }
-
-            .main-container {
-                padding: 12px;
-                gap: 12px;
-            }
-
-            .card {
-                padding: 16px;
-            }
-
-            .schedule-table {
-                font-size: 10px;
-            }
-
-            .schedule-table th,
-            .schedule-table td {
-                padding: 8px;
-            }
+        .login-card.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
-        /* SAVED INDICATOR */
-        .saved-text {
-            margin-left: auto;
-            font-size: 12px;
-            color: #00a8a8;
-            align-self: center;
-            font-weight: 700;
-            display: none;
+        /* SCROLLBAR */
+        .left-panel::-webkit-scrollbar,
+        .preference-section::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .saved-text.visible {
-            display: inline;
+        .left-panel::-webkit-scrollbar-track,
+        .preference-section::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+
+        .left-panel::-webkit-scrollbar-thumb,
+        .preference-section::-webkit-scrollbar-thumb {
+            background: #00a8a8;
+            border-radius: 10px;
         }
     </style>
 </head>
@@ -430,37 +401,37 @@
     <!-- HEADER -->
     <div class="header">
         <h1>🤖 AI STAFF SCHEDULER</h1>
-        <p>Telemetry Department - Intelligent Shift Management</p>
-        <div class="live-time">
+        <div class="header-info">
+            <span>Telemetry Department</span>
             <span id="liveTime">Loading...</span>
         </div>
     </div>
 
     <!-- MAIN CONTAINER -->
     <div class="main-container">
-        <!-- LEFT COLUMN: LOGIN -->
-        <div class="column left">
-            <div class="card" id="loginCard">
+        <!-- LEFT PANEL: LOGIN -->
+        <div class="left-panel">
+            <div class="card login-card" id="loginCard">
                 <h2>Welcome</h2>
-                <p style="font-size: 12px; color: #666; margin-bottom: 16px;">Select your role to begin</p>
+                <p>Select your role to begin</p>
 
                 <div class="role-buttons">
-                    <button class="role-btn staff active" onclick="selectRole('staff')">👥 Staff Login</button>
-                    <button class="role-btn admin" onclick="selectRole('admin')">🔐 Admin Login</button>
+                    <button class="role-btn staff active" onclick="selectRole('staff', this)">👥 Staff</button>
+                    <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
                 </div>
 
                 <!-- STAFF LOGIN -->
                 <div id="staffLoginForm" class="login-container">
                     <div class="form-group">
                         <label>Your Name</label>
-                        <input type="text" id="staffName" placeholder="Enter your name" onkeypress="handleEnter(event, 'staff')">
+                        <input type="text" id="staffName" placeholder="Enter name" onkeypress="handleEnter(event, 'staff')">
                     </div>
 
                     <div class="form-group">
-                        <label>Select Shift Preference</label>
-                        <div style="display: flex; gap: 10px;">
-                            <button class="btn-secondary" style="flex: 1;" id="dayShiftBtn" onclick="selectShift('day')">📅 Day Shift</button>
-                            <button class="btn-secondary" style="flex: 1;" id="nightShiftBtn" onclick="selectShift('night')">🌙 Night Shift</button>
+                        <label>Shift Preference</label>
+                        <div class="shift-buttons">
+                            <button class="shift-btn" id="dayShiftBtn" onclick="selectShift('day', this)">📅 Day</button>
+                            <button class="shift-btn" id="nightShiftBtn" onclick="selectShift('night', this)">🌙 Night</button>
                         </div>
                     </div>
 
@@ -482,57 +453,44 @@
                     <button class="btn-primary" onclick="loginAdmin()">LOGIN</button>
                 </div>
             </div>
+
+            <!-- LOGGED IN INFO -->
+            <div class="card hidden" id="userInfoCard">
+                <h2 id="userName">Welcome</h2>
+                <p id="userShift"></p>
+                <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
+            </div>
         </div>
 
-        <!-- RIGHT COLUMN: APPROVED SCHEDULE + INPUT -->
-        <div class="column right">
-            <!-- APPROVED SCHEDULE: 6/28 - 8/8 -->
-            <div class="card">
-                <h2>✅ Approved Schedule: 6/28 - 8/8 (LOCKED)</h2>
-                <p style="font-size: 11px; color: #666; margin-bottom: 16px;">Confirmed assignments for current period</p>
+        <!-- CENTER PANEL: PREFERENCES -->
+        <div class="center-panel">
+            <div class="preference-section" id="preferenceSection">
+                <h2 id="preferenceTitle">Submit Your Preferences</h2>
+                <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
 
-                <table class="schedule-table" id="approvedSchedule">
-                    <thead>
-                        <tr id="approvedHeader"></tr>
-                    </thead>
-                    <tbody id="approvedBody"></tbody>
-                </table>
-            </div>
-
-            <!-- PENDING INPUT: 8/9 - 9/19 -->
-            <div class="card">
-                <h2>📋 Submit Your Preferences: 8/9 - 9/19 (PENDING)</h2>
-                
                 <div class="preference-header">
                     <h4>How to Submit</h4>
-                    <p>Click dates for shifts you want to work. AI will schedule fairly based on all staff requests.</p>
+                    <p>Click dates for shifts you want to work. AI will schedule fairly.</p>
                 </div>
 
-                <h3 style="margin-top: 0;">Select Your Preferred Dates & Shifts</h3>
-                <div class="preference-grid" id="preferenceGrid"></div>
+                <!-- CALENDAR HEADER -->
+                <div class="calendar-grid">
+                    <div class="day-header">SUN</div>
+                    <div class="day-header">MON</div>
+                    <div class="day-header">TUE</div>
+                    <div class="day-header">WED</div>
+                    <div class="day-header">THU</div>
+                    <div class="day-header">FRI</div>
+                    <div class="day-header">SAT</div>
+                </div>
 
-                <div class="button-group">
-                    <button class="btn-primary" id="submitPrefBtn" onclick="submitPreferences()">Submit Preferences</button>
+                <!-- CALENDAR GRID -->
+                <div class="calendar-grid" id="preferenceGrid"></div>
+
+                <!-- BUTTONS -->
+                <div class="preference-buttons">
+                    <button class="btn-primary" id="submitPrefBtn" onclick="submitPreferences()">Submit</button>
                     <span class="saved-text" id="savedText"></span>
-                </div>
-            </div>
-
-            <!-- LEGEND -->
-            <div class="card">
-                <h3>Legend</h3>
-                <div style="display: flex; gap: 20px; font-size: 11px;">
-                    <div>
-                        <span style="display: inline-block; width: 12px; height: 12px; background: linear-gradient(135deg, #00c9c3, #00a8a8); border-radius: 2px; margin-right: 6px;"></span>
-                        Day Shift Selected
-                    </div>
-                    <div>
-                        <span style="display: inline-block; width: 12px; height: 12px; background: linear-gradient(135deg, #4a90e2, #2c5f7f); border-radius: 2px; margin-right: 6px;"></span>
-                        Night Shift Selected
-                    </div>
-                    <div>
-                        <span style="display: inline-block; width: 12px; height: 12px; background: #f5f9fc; border: 1px solid #d4e8f0; border-radius: 2px; margin-right: 6px;"></span>
-                        No Selection
-                    </div>
                 </div>
             </div>
         </div>
@@ -543,15 +501,12 @@
         const appState = {
             user: null,
             selectedShift: null,
-            preferences: {}, // staff preferences
-            approvedSchedule: {}, // AI-generated approved schedule
+            preferences: {},
             allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack'],
             savedTextTimeout: null
         };
 
         // DATES
-        const approvedStart = new Date(2024, 5, 28); // 6/28/2024
-        const approvedEnd = new Date(2024, 7, 8);    // 8/8/2024
         const pendingStart = new Date(2024, 7, 9);   // 8/9/2024
         const pendingEnd = new Date(2024, 8, 19);    // 9/19/2024
 
@@ -559,21 +514,27 @@
         window.onload = () => {
             updateLiveTime();
             setInterval(updateLiveTime, 1000);
-            generateApprovedSchedule();
+            const staffBtn = document.querySelector('.role-btn.staff');
+            selectRole('staff', staffBtn);
             generatePreferenceGrid();
         };
 
         // LIVE TIME
         function updateLiveTime() {
             const now = new Date();
-            const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            document.getElementById('liveTime').textContent = now.toLocaleDateString('en-US', options);
+            document.getElementById('liveTime').textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
         }
 
         // ROLE SELECTION
-        function selectRole(role) {
-            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+        function selectRole(role, btn) {
+            document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
 
             const staffForm = document.getElementById('staffLoginForm');
             const adminForm = document.getElementById('adminLoginForm');
@@ -588,10 +549,10 @@
         }
 
         // SELECT SHIFT
-        function selectShift(shift) {
+        function selectShift(shift, btn) {
             appState.selectedShift = shift;
-            document.getElementById('dayShiftBtn').classList.toggle('active', shift === 'day');
-            document.getElementById('nightShiftBtn').classList.toggle('active', shift === 'night');
+            document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
             document.getElementById('staffLoginBtn').disabled = false;
         }
 
@@ -607,7 +568,7 @@
                 return;
             }
             appState.user = { role: 'staff', name, shift: appState.selectedShift };
-            showPreferencesPage();
+            showPreferencesView();
         }
 
         // LOGIN ADMIN
@@ -616,121 +577,75 @@
             const password = document.getElementById('adminPassword').value;
             if (username === 'admin' && password === 'admin123') {
                 appState.user = { role: 'admin', name: 'Admin' };
-                showAdminPanel();
+                alert('Admin logged in! (Features coming soon)');
             } else {
                 alert('Invalid credentials');
             }
         }
 
-        // SHOW PREFERENCES PAGE
-        function showPreferencesPage() {
+        // SHOW PREFERENCES VIEW
+        function showPreferencesView() {
             document.getElementById('loginCard').classList.add('hidden');
-            // Preferences section auto-visible since it's on homepage
-            alert(`Welcome ${appState.user.name}! Select your preferred dates below.`);
+            document.getElementById('userInfoCard').classList.remove('hidden');
+            document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
+            document.getElementById('userShift').textContent = `${appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift'}`;
+            
+            const title = appState.user.shift === 'day' ? 'Day Shift Preferences' : 'Night Shift Preferences';
+            document.getElementById('preferenceTitle').textContent = title;
         }
 
-        // SHOW ADMIN PANEL
-        function showAdminPanel() {
-            alert('Admin logged in! (Admin features coming soon)');
+        // LOGOUT
+        function logout() {
+            appState.user = null;
+            appState.selectedShift = null;
+            appState.preferences = {};
+            
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('userInfoCard').classList.add('hidden');
+            document.getElementById('staffName').value = '';
+            document.getElementById('adminUsername').value = '';
+            document.getElementById('adminPassword').value = '';
+            document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('staffLoginBtn').disabled = true;
+            
+            document.querySelectorAll('.preference-cell').forEach(cell => {
+                cell.classList.remove('selected-day', 'selected-night');
+                const dateKey = cell.getAttribute('data-key');
+                const badge = document.getElementById(`badge-${dateKey}`);
+                if (badge) badge.textContent = '';
+            });
         }
 
-        // GENERATE APPROVED SCHEDULE (6/28-8/8)
-        function generateApprovedSchedule() {
-            // Sample approved assignments
-            const schedule = {};
-            let currentDate = new Date(approvedStart);
-            const staff = appState.allStaff;
-            let staffIndex = 0;
-
-            while (currentDate <= approvedEnd) {
-                const dateKey = currentDate.toISOString().split('T')[0];
-                
-                // Rotate staff fairly
-                const dayStaff = [staff[staffIndex % 10], staff[(staffIndex + 1) % 10]];
-                const nightStaff = [staff[(staffIndex + 2) % 10], staff[(staffIndex + 3) % 10]];
-
-                schedule[dateKey] = {
-                    day: dayStaff,
-                    night: nightStaff
-                };
-
-                staffIndex += 2;
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-
-            appState.approvedSchedule = schedule;
-            renderApprovedSchedule();
-        }
-
-        // RENDER APPROVED SCHEDULE
-        function renderApprovedSchedule() {
-            const header = document.getElementById('approvedHeader');
-            const body = document.getElementById('approvedBody');
-            header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
-
-            let html = '<tr>';
-            let dayOfWeek = approvedStart.getDay();
-            let currentDate = new Date(approvedStart);
-
-            // Padding for starting day
-            for (let i = 0; i < dayOfWeek; i++) {
-                html += '<td></td>';
-            }
-
-            while (currentDate <= approvedEnd) {
-                if (dayOfWeek === 7) {
-                    html += '</tr><tr>';
-                    dayOfWeek = 0;
-                }
-
-                const dateKey = currentDate.toISOString().split('T')[0];
-                const assignment = appState.approvedSchedule[dateKey];
-                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-                html += `<td>
-                    <div class="date-cell">${dateStr}</div>
-                    <div class="shift-info">
-                        <span class="shift-label">Day:</span>
-                        <span class="staff-names">${assignment.day.join(', ')}</span>
-                    </div>
-                    <div class="shift-info">
-                        <span class="shift-label">Night:</span>
-                        <span class="staff-names">${assignment.night.join(', ')}</span>
-                    </div>
-                </td>`;
-
-                currentDate.setDate(currentDate.getDate() + 1);
-                dayOfWeek++;
-            }
-
-            // Padding for ending
-            while (dayOfWeek < 7) {
-                html += '<td></td>';
-                dayOfWeek++;
-            }
-
-            html += '</tr>';
-            body.innerHTML = html;
-        }
-
-        // GENERATE PREFERENCE GRID (8/9-9/19)
+        // GENERATE PREFERENCE GRID
         function generatePreferenceGrid() {
             const grid = document.getElementById('preferenceGrid');
             let html = '';
             let currentDate = new Date(pendingStart);
+            let dayOfWeek = currentDate.getDay();
+
+            // Padding
+            for (let i = 0; i < dayOfWeek; i++) {
+                html += '<div></div>';
+            }
 
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
-                html += `<div class="preference-cell" onclick="togglePreference('${dateKey}', event)">
-                    <div class="date-label-small">${dayName}</div>
+                const cellHtml = `<div class="preference-cell" onclick="togglePreference('${dateKey}', event)" data-key="${dateKey}">
                     <div class="date-label-small">${dateStr}</div>
-                    <div class="shift-badges" id="badges-${dateKey}"></div>
+                    <div class="shift-badge" id="badge-${dateKey}"></div>
                 </div>`;
 
+                html += cellHtml;
+
                 currentDate.setDate(currentDate.getDate() + 1);
+                dayOfWeek++;
+
+                if (dayOfWeek === 7) {
+                    dayOfWeek = 0;
+                    // Don't add row break, grid handles it
+                }
             }
 
             grid.innerHTML = html;
@@ -739,43 +654,39 @@
         // TOGGLE PREFERENCE
         function togglePreference(dateKey, event) {
             const cell = event.currentTarget;
+            
+            if (!appState.user) {
+                alert('Please login first');
+                return;
+            }
+
             const prefs = appState.preferences[dateKey] || [];
 
-            // Cycle: none → day → night → both → none
             if (prefs.length === 0) {
-                appState.preferences[dateKey] = ['day'];
-                cell.classList.add('selected-day');
-                cell.classList.remove('selected-night');
-            } else if (prefs.length === 1 && prefs[0] === 'day') {
-                appState.preferences[dateKey] = ['night'];
-                cell.classList.remove('selected-day');
-                cell.classList.add('selected-night');
-            } else if (prefs.length === 1 && prefs[0] === 'night') {
-                appState.preferences[dateKey] = ['day', 'night'];
-                cell.classList.add('selected-day');
-                cell.classList.add('selected-night');
+                appState.preferences[dateKey] = [appState.user.shift];
+                cell.classList.add(appState.user.shift === 'day' ? 'selected-day' : 'selected-night');
             } else {
                 appState.preferences[dateKey] = [];
                 cell.classList.remove('selected-day', 'selected-night');
             }
 
-            updateBadges(dateKey);
+            updateBadge(dateKey);
         }
 
-        // UPDATE BADGES
-        function updateBadges(dateKey) {
-            const badges = document.getElementById(`badges-${dateKey}`);
+        // UPDATE BADGE
+        function updateBadge(dateKey) {
+            const badge = document.getElementById(`badge-${dateKey}`);
             const prefs = appState.preferences[dateKey] || [];
-            let html = '';
-
-            if (prefs.includes('day')) html += '<span class="badge">D</span>';
-            if (prefs.includes('night')) html += '<span class="badge">N</span>';
-
-            badges.innerHTML = html;
+            badge.textContent = prefs.length > 0 ? '✓' : '';
         }
 
         // SUBMIT PREFERENCES
         function submitPreferences() {
+            if (!appState.user) {
+                alert('Please login first');
+                return;
+            }
+
             if (Object.keys(appState.preferences).length === 0) {
                 alert('Please select at least one date!');
                 return;
@@ -785,7 +696,6 @@
                 clearTimeout(appState.savedTextTimeout);
             }
 
-            // Save preferences
             const saved = document.getElementById('savedText');
             saved.classList.add('visible');
             saved.textContent = '✓ Saved';
@@ -795,8 +705,8 @@
                 saved.textContent = '';
             }, 5000);
 
-            console.log('Preferences saved:', appState.preferences);
-            alert('Your preferences have been submitted! AI Scheduler will process them soon.');
+            console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
+            alert('Your preferences submitted! AI will process soon.');
         }
 
         // HANDLE ENTER KEY
