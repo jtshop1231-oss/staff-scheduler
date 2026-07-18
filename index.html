@@ -803,21 +803,23 @@
         document.getElementById('staffGreeting').textContent = `Hello, ${appState.user.name}`;
         document.getElementById('shiftTitle').textContent = `${appState.user.shift === 'day' ? 'Day' : 'Night'} Shift Schedule`;
         
-        // Clear any saved text timeout
+        // Clear any saved text timeout and reset flag
         if (savedTextTimeout) {
             clearTimeout(savedTextTimeout);
             savedTextTimeout = null;
         }
+        shouldShowSaved = false;
         
         renderStaffCalendar();
     }
 
     function logout() {
-        // Clear any saved text timeout
+        // Clear any saved text timeout and reset flag
         if (savedTextTimeout) {
             clearTimeout(savedTextTimeout);
             savedTextTimeout = null;
         }
+        shouldShowSaved = false;
         
         appState.user = null;
         appState.selectedShift = null;
@@ -942,6 +944,7 @@
             clearTimeout(savedTextTimeout);
             savedTextTimeout = null;
         }
+        shouldShowSaved = false;
         
         const key = selectElement.getAttribute('data-key');
         const value = selectElement.value;
@@ -965,6 +968,7 @@
     }
 
     let savedTextTimeout = null;
+    let shouldShowSaved = false;
 
     function updateSaveButtonState() {
         const changed = hasChanges();
@@ -981,16 +985,18 @@
         if (changed) {
             savedText.classList.remove('visible');
             savedText.textContent = '';
-        } else {
+            shouldShowSaved = false;
+        } else if (shouldShowSaved) {
+            // Only show if it was explicitly saved
             savedText.classList.add('visible');
             savedText.textContent = '✓ Saved';
             
-            // Auto-hide after 6 seconds
+            // Auto-hide after 5 seconds
             savedTextTimeout = setTimeout(() => {
                 savedText.classList.remove('visible');
                 savedText.textContent = '';
                 savedTextTimeout = null;
-            }, 6000);
+            }, 5000);
         }
     }
 
@@ -1013,9 +1019,9 @@
                 
                 // Map value to display text
                 let requestType = '';
-                if (value === 'on') requestType = 'Requesting ON';
-                else if (value === 'off-pto') requestType = 'Requesting OFF (PTO)';
-                else if (value === 'off-no-pto') requestType = 'Requesting OFF (No PTO)';
+                if (value === 'on') requestType = 'ON';
+                else if (value === 'off-pto') requestType = 'OFF (PTO)';
+                else if (value === 'off-no-pto') requestType = 'OFF (No PTO)';
                 else if (value === 'available') requestType = 'Available';
                 
                 appState.allRequests.push({
@@ -1030,6 +1036,7 @@
         });
 
         appState.savedSelections = { ...appState.selections };
+        shouldShowSaved = true;
         renderAdminDashboard();
         renderStaffCalendar();
     }
@@ -1040,6 +1047,7 @@
             clearTimeout(savedTextTimeout);
             savedTextTimeout = null;
         }
+        shouldShowSaved = false;
         appState.selections = { ...appState.savedSelections };
         renderStaffCalendar();
     }
