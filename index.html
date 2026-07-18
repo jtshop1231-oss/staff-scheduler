@@ -45,21 +45,42 @@
             margin-top: 4px;
         }
 
-        /* MAIN CONTAINER */
+        /* PAGES */
+        .page {
+            display: none;
+            width: 100%;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* HOMEPAGE */
         .main-container {
             display: flex;
             gap: 20px;
             padding: 16px 20px;
-            height: calc(100vh - 60px);
+            width: 100%;
+            height: 100%;
         }
 
-        /* LEFT SIDE - LOGIN */
         .left-panel {
             width: 380px;
             display: flex;
             flex-direction: column;
             gap: 12px;
             overflow-y: auto;
+        }
+
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
         }
 
         .card {
@@ -108,18 +129,17 @@
             transition: all 0.2s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            color: #2c5f7f;
         }
 
-        .role-btn.staff.active {
+        .role-btn.active {
             background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
             color: #fff;
             border-color: #00a8a8;
         }
 
-        .role-btn.admin.active {
-            background: linear-gradient(135deg, #0084d4 0%, #005aa0 100%);
-            color: #fff;
-            border-color: #005aa0;
+        .role-btn:hover {
+            border-color: #00c9c3;
         }
 
         .form-group {
@@ -136,8 +156,7 @@
             letter-spacing: 0.5px;
         }
 
-        .form-group input,
-        .form-group select {
+        .form-group input {
             width: 100%;
             padding: 8px;
             border: 2px solid #d4e8f0;
@@ -147,8 +166,7 @@
             color: #2c5f7f;
         }
 
-        .form-group input:focus,
-        .form-group select:focus {
+        .form-group input:focus {
             outline: none;
             border-color: #00a8a8;
             box-shadow: 0 0 0 3px rgba(0, 201, 195, 0.1);
@@ -169,12 +187,17 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            color: #2c5f7f;
         }
 
         .shift-btn.active {
             background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
             color: #fff;
             border-color: #00a8a8;
+        }
+
+        .shift-btn:hover {
+            border-color: #00c9c3;
         }
 
         button {
@@ -216,8 +239,97 @@
             background: #d4e8f0;
         }
 
-        /* CENTER PANEL - PREFERENCES */
-        .center-panel {
+        /* APPROVED SCHEDULE */
+        .schedule-section {
+            background: #f5f9fc;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            max-height: 100%;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .schedule-section h2 {
+            text-align: center;
+            font-size: 16px;
+            color: #0084d4;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .schedule-info {
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            margin-bottom: 16px;
+            font-size: 10px;
+        }
+
+        .schedule-table th {
+            background: #2c5f7f;
+            color: #fff;
+            padding: 8px;
+            text-align: center;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .schedule-table td {
+            background: #fff;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #d4e8f0;
+            vertical-align: middle;
+            min-height: 70px;
+        }
+
+        .date-cell {
+            font-weight: 700;
+            color: #00a8a8;
+            margin-bottom: 6px;
+        }
+
+        .shift-info {
+            font-size: 9px;
+            margin-bottom: 4px;
+        }
+
+        .shift-label {
+            font-weight: 700;
+            color: #2c5f7f;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .staff-names {
+            color: #00a8a8;
+            font-weight: 600;
+        }
+
+        /* PREFERENCE PAGE */
+        .preference-container {
+            display: flex;
+            gap: 20px;
+            padding: 16px 20px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .preference-left {
+            width: 380px;
+        }
+
+        .preference-center {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -271,13 +383,11 @@
             color: #666;
         }
 
-        /* CALENDAR GRID */
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 10px;
             margin-bottom: 16px;
-            justify-content: center;
         }
 
         .day-header {
@@ -312,17 +422,10 @@
             transform: scale(1.05);
         }
 
-        .preference-cell.selected-day {
+        .preference-cell.selected {
             background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
             color: #fff;
             border-color: #00a8a8;
-            font-weight: 700;
-        }
-
-        .preference-cell.selected-night {
-            background: linear-gradient(135deg, #4a90e2 0%, #2c5f7f 100%);
-            color: #fff;
-            border-color: #2c5f7f;
             font-weight: 700;
         }
 
@@ -339,7 +442,6 @@
             border: 1px solid rgba(255,255,255,0.5);
         }
 
-        /* BUTTONS */
         .preference-buttons {
             display: flex;
             gap: 10px;
@@ -356,7 +458,6 @@
             color: #00a8a8;
             font-weight: 700;
             display: none;
-            align-self: center;
         }
 
         .saved-text.visible {
@@ -368,29 +469,22 @@
             display: none !important;
         }
 
-        /* LOGGED IN VIEW */
-        .login-card {
-            transition: all 0.3s;
-        }
-
-        .login-card.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
         /* SCROLLBAR */
         .left-panel::-webkit-scrollbar,
+        .schedule-section::-webkit-scrollbar,
         .preference-section::-webkit-scrollbar {
             width: 6px;
         }
 
         .left-panel::-webkit-scrollbar-track,
+        .schedule-section::-webkit-scrollbar-track,
         .preference-section::-webkit-scrollbar-track {
             background: #f0f0f0;
             border-radius: 10px;
         }
 
         .left-panel::-webkit-scrollbar-thumb,
+        .schedule-section::-webkit-scrollbar-thumb,
         .preference-section::-webkit-scrollbar-thumb {
             background: #00a8a8;
             border-radius: 10px;
@@ -407,90 +501,122 @@
         </div>
     </div>
 
-    <!-- MAIN CONTAINER -->
-    <div class="main-container">
-        <!-- LEFT PANEL: LOGIN -->
-        <div class="left-panel">
-            <div class="card login-card" id="loginCard">
-                <h2>Welcome</h2>
-                <p>Select your role to begin</p>
+    <!-- ===== HOMEPAGE PAGE ===== -->
+    <div class="page active" id="homePage">
+        <div class="main-container">
+            <!-- LEFT PANEL: LOGIN -->
+            <div class="left-panel">
+                <div class="card login-card" id="loginCard">
+                    <h2>Welcome</h2>
+                    <p>Select your role to begin</p>
 
-                <div class="role-buttons">
-                    <button class="role-btn staff active" onclick="selectRole('staff', this)">👥 Staff</button>
-                    <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
-                </div>
-
-                <!-- STAFF LOGIN -->
-                <div id="staffLoginForm" class="login-container">
-                    <div class="form-group">
-                        <label>Your Name</label>
-                        <input type="text" id="staffName" placeholder="Enter name" onkeypress="handleEnter(event, 'staff')">
+                    <div class="role-buttons">
+                        <button class="role-btn staff" onclick="selectRole('staff', this)">👥 Staff</button>
+                        <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
                     </div>
 
-                    <div class="form-group">
-                        <label>Shift Preference</label>
-                        <div class="shift-buttons">
-                            <button class="shift-btn" id="dayShiftBtn" onclick="selectShift('day', this)">📅 Day</button>
-                            <button class="shift-btn" id="nightShiftBtn" onclick="selectShift('night', this)">🌙 Night</button>
+                    <!-- STAFF LOGIN -->
+                    <div id="staffLoginForm" class="login-container hidden">
+                        <div class="form-group">
+                            <label>Your Name</label>
+                            <input type="text" id="staffName" placeholder="Enter name" onkeypress="handleEnter(event, 'staff')">
                         </div>
+
+                        <div class="form-group">
+                            <label>Shift Preference</label>
+                            <div class="shift-buttons">
+                                <button class="shift-btn" onclick="selectShift('day', this)">📅 Day</button>
+                                <button class="shift-btn" onclick="selectShift('night', this)">🌙 Night</button>
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" id="staffLoginBtn" disabled onclick="loginStaff()">LOGIN</button>
                     </div>
 
-                    <button class="btn-primary" id="staffLoginBtn" disabled onclick="loginStaff()">LOGIN</button>
+                    <!-- ADMIN LOGIN -->
+                    <div id="adminLoginForm" class="login-container hidden">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="adminUsername" placeholder="admin" onkeypress="handleEnter(event, 'admin')">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="adminPassword" placeholder="admin123" onkeypress="handleEnter(event, 'admin')">
+                        </div>
+
+                        <button class="btn-primary" onclick="loginAdmin()">LOGIN</button>
+                    </div>
                 </div>
 
-                <!-- ADMIN LOGIN -->
-                <div id="adminLoginForm" class="login-container hidden">
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" id="adminUsername" placeholder="admin" onkeypress="handleEnter(event, 'admin')">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="adminPassword" placeholder="admin123" onkeypress="handleEnter(event, 'admin')">
-                    </div>
-
-                    <button class="btn-primary" onclick="loginAdmin()">LOGIN</button>
+                <!-- LOGGED IN INFO -->
+                <div class="card hidden" id="userInfoCard">
+                    <h2 id="userName">Welcome</h2>
+                    <p id="userShift"></p>
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToPreferences()">📋 SUBMIT PREFERENCES</button>
+                    <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
             </div>
 
-            <!-- LOGGED IN INFO -->
-            <div class="card hidden" id="userInfoCard">
-                <h2 id="userName">Welcome</h2>
-                <p id="userShift"></p>
-                <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
+            <!-- CENTER PANEL: APPROVED SCHEDULE -->
+            <div class="center-panel">
+                <div class="schedule-section">
+                    <h2>✅ Approved Schedule</h2>
+                    <div class="schedule-info">6/28 - 8/8 (LOCKED)</div>
+
+                    <table class="schedule-table" id="approvedSchedule">
+                        <thead>
+                            <tr id="scheduleHeader"></tr>
+                        </thead>
+                        <tbody id="scheduleBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- CENTER PANEL: PREFERENCES -->
-        <div class="center-panel">
-            <div class="preference-section" id="preferenceSection">
-                <h2 id="preferenceTitle">Submit Your Preferences</h2>
-                <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
-
-                <div class="preference-header">
-                    <h4>How to Submit</h4>
-                    <p>Click dates for shifts you want to work. AI will schedule fairly.</p>
+    <!-- ===== PREFERENCES PAGE ===== -->
+    <div class="page" id="preferencePage">
+        <div class="preference-container">
+            <!-- LEFT PANEL -->
+            <div class="preference-left">
+                <div class="card" id="prefUserCard">
+                    <h2 id="prefUserName">Hello</h2>
+                    <p id="prefUserShift"></p>
+                    <button class="btn-secondary" style="width: 100%;" onclick="backToHome()">← BACK</button>
                 </div>
+            </div>
 
-                <!-- CALENDAR HEADER -->
-                <div class="calendar-grid">
-                    <div class="day-header">SUN</div>
-                    <div class="day-header">MON</div>
-                    <div class="day-header">TUE</div>
-                    <div class="day-header">WED</div>
-                    <div class="day-header">THU</div>
-                    <div class="day-header">FRI</div>
-                    <div class="day-header">SAT</div>
-                </div>
+            <!-- CENTER PANEL: PREFERENCES -->
+            <div class="preference-center">
+                <div class="preference-section">
+                    <h2 id="preferenceTitle">Submit Your Preferences</h2>
+                    <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
 
-                <!-- CALENDAR GRID -->
-                <div class="calendar-grid" id="preferenceGrid"></div>
+                    <div class="preference-header">
+                        <h4>How to Submit</h4>
+                        <p>Click dates for shifts you want to work. AI will schedule fairly.</p>
+                    </div>
 
-                <!-- BUTTONS -->
-                <div class="preference-buttons">
-                    <button class="btn-primary" id="submitPrefBtn" onclick="submitPreferences()">Submit</button>
-                    <span class="saved-text" id="savedText"></span>
+                    <!-- CALENDAR HEADER -->
+                    <div class="calendar-grid">
+                        <div class="day-header">SUN</div>
+                        <div class="day-header">MON</div>
+                        <div class="day-header">TUE</div>
+                        <div class="day-header">WED</div>
+                        <div class="day-header">THU</div>
+                        <div class="day-header">FRI</div>
+                        <div class="day-header">SAT</div>
+                    </div>
+
+                    <!-- CALENDAR GRID -->
+                    <div class="calendar-grid" id="preferenceGrid"></div>
+
+                    <!-- BUTTONS -->
+                    <div class="preference-buttons">
+                        <button class="btn-primary" id="submitPrefBtn" onclick="submitPreferences()">Submit</button>
+                        <span class="saved-text" id="savedText"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -503,10 +629,13 @@
             selectedShift: null,
             preferences: {},
             allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack'],
+            approvedSchedule: {},
             savedTextTimeout: null
         };
 
         // DATES
+        const approvedStart = new Date(2024, 5, 28); // 6/28/2024
+        const approvedEnd = new Date(2024, 7, 8);    // 8/8/2024
         const pendingStart = new Date(2024, 7, 9);   // 8/9/2024
         const pendingEnd = new Date(2024, 8, 19);    // 9/19/2024
 
@@ -514,8 +643,7 @@
         window.onload = () => {
             updateLiveTime();
             setInterval(updateLiveTime, 1000);
-            const staffBtn = document.querySelector('.role-btn.staff');
-            selectRole('staff', staffBtn);
+            generateApprovedSchedule();
             generatePreferenceGrid();
         };
 
@@ -568,7 +696,7 @@
                 return;
             }
             appState.user = { role: 'staff', name, shift: appState.selectedShift };
-            showPreferencesView();
+            showHomepage();
         }
 
         // LOGIN ADMIN
@@ -577,21 +705,35 @@
             const password = document.getElementById('adminPassword').value;
             if (username === 'admin' && password === 'admin123') {
                 appState.user = { role: 'admin', name: 'Admin' };
-                alert('Admin logged in! (Features coming soon)');
+                showHomepage();
             } else {
                 alert('Invalid credentials');
             }
         }
 
-        // SHOW PREFERENCES VIEW
-        function showPreferencesView() {
+        // SHOW HOMEPAGE (LOGGED IN)
+        function showHomepage() {
             document.getElementById('loginCard').classList.add('hidden');
             document.getElementById('userInfoCard').classList.remove('hidden');
             document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
-            document.getElementById('userShift').textContent = `${appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift'}`;
+            document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+        }
+
+        // GO TO PREFERENCES
+        function goToPreferences() {
+            document.getElementById('homePage').classList.remove('active');
+            document.getElementById('preferencePage').classList.add('active');
+            document.getElementById('prefUserName').textContent = `Hello, ${appState.user.name}!`;
+            document.getElementById('prefUserShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
             
             const title = appState.user.shift === 'day' ? 'Day Shift Preferences' : 'Night Shift Preferences';
             document.getElementById('preferenceTitle').textContent = title;
+        }
+
+        // BACK TO HOME
+        function backToHome() {
+            document.getElementById('preferencePage').classList.remove('active');
+            document.getElementById('homePage').classList.add('active');
         }
 
         // LOGOUT
@@ -605,15 +747,91 @@
             document.getElementById('staffName').value = '';
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
+            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('staffLoginBtn').disabled = true;
             
             document.querySelectorAll('.preference-cell').forEach(cell => {
-                cell.classList.remove('selected-day', 'selected-night');
+                cell.classList.remove('selected');
                 const dateKey = cell.getAttribute('data-key');
                 const badge = document.getElementById(`badge-${dateKey}`);
                 if (badge) badge.textContent = '';
             });
+        }
+
+        // GENERATE APPROVED SCHEDULE
+        function generateApprovedSchedule() {
+            const schedule = {};
+            let currentDate = new Date(approvedStart);
+            const staff = appState.allStaff;
+            let staffIndex = 0;
+
+            while (currentDate <= approvedEnd) {
+                const dateKey = currentDate.toISOString().split('T')[0];
+                
+                const dayStaff = [staff[staffIndex % 10], staff[(staffIndex + 1) % 10]];
+                const nightStaff = [staff[(staffIndex + 2) % 10], staff[(staffIndex + 3) % 10]];
+
+                schedule[dateKey] = {
+                    day: dayStaff,
+                    night: nightStaff
+                };
+
+                staffIndex += 2;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            appState.approvedSchedule = schedule;
+            renderApprovedSchedule();
+        }
+
+        // RENDER APPROVED SCHEDULE
+        function renderApprovedSchedule() {
+            const header = document.getElementById('scheduleHeader');
+            const body = document.getElementById('scheduleBody');
+            header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
+
+            let html = '<tr>';
+            let dayOfWeek = approvedStart.getDay();
+            let currentDate = new Date(approvedStart);
+
+            for (let i = 0; i < dayOfWeek; i++) {
+                html += '<td></td>';
+            }
+
+            while (currentDate <= approvedEnd) {
+                if (dayOfWeek === 7) {
+                    html += '</tr><tr>';
+                    dayOfWeek = 0;
+                }
+
+                const dateKey = currentDate.toISOString().split('T')[0];
+                const assignment = appState.approvedSchedule[dateKey];
+                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                html += `<td>
+                    <div class="date-cell">${dateStr}</div>
+                    <div class="shift-info">
+                        <span class="shift-label">Day:</span>
+                        <span class="staff-names">${assignment.day.join(', ')}</span>
+                    </div>
+                    <div class="shift-info">
+                        <span class="shift-label">Night:</span>
+                        <span class="staff-names">${assignment.night.join(', ')}</span>
+                    </div>
+                </td>`;
+
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayOfWeek++;
+            }
+
+            while (dayOfWeek < 7) {
+                html += '<td></td>';
+                dayOfWeek++;
+            }
+
+            html += '</tr>';
+            body.innerHTML = html;
         }
 
         // GENERATE PREFERENCE GRID
@@ -621,53 +839,40 @@
             const grid = document.getElementById('preferenceGrid');
             let html = '';
             let currentDate = new Date(pendingStart);
-            let dayOfWeek = currentDate.getDay();
-
-            // Padding
-            for (let i = 0; i < dayOfWeek; i++) {
-                html += '<div></div>';
-            }
 
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
-                const cellHtml = `<div class="preference-cell" onclick="togglePreference('${dateKey}', event)" data-key="${dateKey}">
+                html += `<div class="preference-cell" onclick="togglePreference('${dateKey}')" data-key="${dateKey}">
+                    <div class="date-label-small">${dayName}</div>
                     <div class="date-label-small">${dateStr}</div>
                     <div class="shift-badge" id="badge-${dateKey}"></div>
                 </div>`;
 
-                html += cellHtml;
-
                 currentDate.setDate(currentDate.getDate() + 1);
-                dayOfWeek++;
-
-                if (dayOfWeek === 7) {
-                    dayOfWeek = 0;
-                    // Don't add row break, grid handles it
-                }
             }
 
             grid.innerHTML = html;
         }
 
         // TOGGLE PREFERENCE
-        function togglePreference(dateKey, event) {
-            const cell = event.currentTarget;
-            
+        function togglePreference(dateKey) {
             if (!appState.user) {
                 alert('Please login first');
                 return;
             }
 
+            const cell = document.querySelector(`.preference-cell[data-key="${dateKey}"]`);
             const prefs = appState.preferences[dateKey] || [];
 
             if (prefs.length === 0) {
                 appState.preferences[dateKey] = [appState.user.shift];
-                cell.classList.add(appState.user.shift === 'day' ? 'selected-day' : 'selected-night');
+                cell.classList.add('selected');
             } else {
                 appState.preferences[dateKey] = [];
-                cell.classList.remove('selected-day', 'selected-night');
+                cell.classList.remove('selected');
             }
 
             updateBadge(dateKey);
