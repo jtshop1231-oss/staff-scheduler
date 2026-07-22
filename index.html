@@ -414,9 +414,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 4px;
             border: 1px solid #000000;
             background: #fff;
-            cursor: pointer;
             transition: all 0.2s;
             padding: 8px 4px;
             min-height: 70px;
@@ -427,14 +427,26 @@
 
         .preference-cell:hover {
             border-color: #00c9c3;
-            background: #f0fffe;
-            transform: scale(1.05);
         }
 
-        .preference-cell.selected {
+        .preference-cell.pref-on {
             background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
             color: #fff;
             border-color: #00a8a8;
+            font-weight: 700;
+        }
+
+        .preference-cell.pref-off {
+            background: #e0e0e0;
+            color: #444;
+            border-color: #999;
+            font-weight: 700;
+        }
+
+        .preference-cell.pref-pto {
+            background: linear-gradient(135deg, #4a90d9 0%, #2c5f7f 100%);
+            color: #fff;
+            border-color: #2c5f7f;
             font-weight: 700;
         }
 
@@ -445,13 +457,24 @@
             line-height: 1;
         }
 
-        .shift-badge {
-            font-size: 11px;
+        .pref-select {
+            width: 100%;
+            font-size: 10px;
             font-weight: 700;
-            padding: 1px 2px;
-            border-radius: 1px;
-            background: rgba(255,255,255,0.3);
-            border: 1px solid rgba(255,255,255,0.5);
+            padding: 3px 2px;
+            border-radius: 4px;
+            border: 1px solid #d4e8f0;
+            background: #fff;
+            color: #2c5f7f;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .preference-cell.pref-on .pref-select,
+        .preference-cell.pref-off .pref-select,
+        .preference-cell.pref-pto .pref-select {
+            border-color: rgba(255,255,255,0.6);
+            color: #2c5f7f;
         }
 
         .preference-buttons {
@@ -773,10 +796,10 @@
             document.getElementById('staffLoginBtn').disabled = true;
             
             document.querySelectorAll('.preference-cell').forEach(cell => {
-                cell.classList.remove('selected');
+                cell.classList.remove('pref-on', 'pref-off', 'pref-pto');
                 const dateKey = cell.getAttribute('data-key');
-                const badge = document.getElementById(`badge-${dateKey}`);
-                if (badge) badge.textContent = '';
+                const select = document.getElementById(`select-${dateKey}`);
+                if (select) select.value = '';
             });
         }
 
@@ -876,10 +899,15 @@
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
-                html += `<div class="preference-cell" onclick="togglePreference('${dateKey}')" data-key="${dateKey}">
+                html += `<div class="preference-cell" data-key="${dateKey}">
                     <div class="date-label-small">${dayName}</div>
                     <div class="date-label-small">${dateStr}</div>
-                    <div class="shift-badge" id="badge-${dateKey}"></div>
+                    <select class="pref-select" id="select-${dateKey}" onchange="handlePrefChange('${dateKey}', this.value)">
+                        <option value="">-- Select --</option>
+                        <option value="on">Request ON</option>
+                        <option value="off">Request OFF</option>
+                        <option value="pto">Request PTO</option>
+                    </select>
                 </div>`;
 
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -888,32 +916,22 @@
             grid.innerHTML = html;
         }
 
-        // TOGGLE PREFERENCE
-        function togglePreference(dateKey) {
+        // HANDLE PREFERENCE DROPDOWN CHANGE
+        function handlePrefChange(dateKey, value) {
             if (!appState.user) {
                 alert('Please login first');
                 return;
             }
 
             const cell = document.querySelector(`.preference-cell[data-key="${dateKey}"]`);
-            const prefs = appState.preferences[dateKey] || [];
+            cell.classList.remove('pref-on', 'pref-off', 'pref-pto');
 
-            if (prefs.length === 0) {
-                appState.preferences[dateKey] = [appState.user.shift];
-                cell.classList.add('selected');
+            if (value) {
+                appState.preferences[dateKey] = value;
+                cell.classList.add(`pref-${value}`);
             } else {
-                appState.preferences[dateKey] = [];
-                cell.classList.remove('selected');
+                delete appState.preferences[dateKey];
             }
-
-            updateBadge(dateKey);
-        }
-
-        // UPDATE BADGE
-        function updateBadge(dateKey) {
-            const badge = document.getElementById(`badge-${dateKey}`);
-            const prefs = appState.preferences[dateKey] || [];
-            badge.textContent = prefs.length > 0 ? '✓' : '';
         }
 
         // SUBMIT PREFERENCES
