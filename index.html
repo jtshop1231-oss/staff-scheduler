@@ -636,7 +636,7 @@
             user: null,
             selectedShift: null,
             preferences: {},
-            allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack'],
+            allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack', 'Kevin', 'Liza'],
             approvedSchedule: {},
             savedTextTimeout: null
         };
@@ -774,18 +774,30 @@
             const staff = appState.allStaff;
             let staffIndex = 0;
 
+            const totalStaff = staff.length;
+
             while (currentDate <= approvedEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 
-                const dayStaff = [staff[staffIndex % 10], staff[(staffIndex + 1) % 10]];
-                const nightStaff = [staff[(staffIndex + 2) % 10], staff[(staffIndex + 3) % 10]];
+                const dayStaff = [
+                    staff[staffIndex % totalStaff],
+                    staff[(staffIndex + 1) % totalStaff],
+                    staff[(staffIndex + 2) % totalStaff],
+                    staff[(staffIndex + 3) % totalStaff]
+                ];
+                const nightStaff = [
+                    staff[(staffIndex + 4) % totalStaff],
+                    staff[(staffIndex + 5) % totalStaff],
+                    staff[(staffIndex + 6) % totalStaff],
+                    staff[(staffIndex + 7) % totalStaff]
+                ];
 
                 schedule[dateKey] = {
                     day: dayStaff,
                     night: nightStaff
                 };
 
-                staffIndex += 2;
+                staffIndex += 4;
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
