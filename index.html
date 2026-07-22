@@ -568,7 +568,8 @@
                 <div class="card hidden" id="userInfoCard">
                     <h2 id="userName">Welcome</h2>
                     <p id="userShift"></p>
-                    <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToPreferences()">📋 SUBMIT PREFERENCES</button>
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToPreferences()">📋 REQUEST PREFERENCES</button>
+                    <button class="btn-primary" id="proposeShiftBtn" style="width: 100%; margin-bottom: 8px;" disabled title="Not yet open by Admin" onclick="goToProposeShift()">🗓️ MY PROPOSE SHIFT</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
             </div>
@@ -640,7 +641,8 @@
             preferences: {},
             allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack', 'Kevin', 'Liza'],
             approvedSchedule: {},
-            savedTextTimeout: null
+            savedTextTimeout: null,
+            proposeShiftOpen: false
         };
 
         // DATES
@@ -738,6 +740,15 @@
             
             const title = appState.user.shift === 'day' ? 'Day Shift Preferences' : 'Night Shift Preferences';
             document.getElementById('preferenceTitle').textContent = title;
+        }
+
+        // GO TO MY PROPOSE SHIFT (placeholder - page not built yet)
+        function goToProposeShift() {
+            if (!appState.proposeShiftOpen) {
+                alert('Not yet open. Admin has not started the scheduling window yet.');
+                return;
+            }
+            alert('My Propose Shift page coming soon!');
         }
 
         // BACK TO HOME
