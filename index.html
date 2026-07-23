@@ -450,6 +450,13 @@
             font-weight: 700;
         }
 
+        .preference-cell.pref-available {
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
+            color: #4a3800;
+            border-color: #ffb300;
+            font-weight: 700;
+        }
+
         .date-label-small {
             font-weight: 800;
             margin-bottom: 0px;
@@ -656,16 +663,59 @@
         </div>
     </div>
 
+    <!-- ===== MY PROPOSE SHIFT PAGE ===== -->
+    <div class="page" id="proposeShiftPage">
+        <div class="preference-container">
+            <!-- LEFT PANEL -->
+            <div class="preference-left">
+                <div class="card" id="proposeUserCard">
+                    <h2 id="proposeUserName">Hello</h2>
+                    <p id="proposeUserShift"></p>
+                    <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromPropose()">← BACK</button>
+                </div>
+            </div>
+
+            <!-- CENTER PANEL: MY PROPOSE SHIFT -->
+            <div class="preference-center">
+                <div class="preference-section">
+                    <h2>My Propose Shift</h2>
+                    <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
+
+                    <!-- CALENDAR HEADER -->
+                    <div class="calendar-grid">
+                        <div class="day-header">SUN</div>
+                        <div class="day-header">MON</div>
+                        <div class="day-header">TUE</div>
+                        <div class="day-header">WED</div>
+                        <div class="day-header">THU</div>
+                        <div class="day-header">FRI</div>
+                        <div class="day-header">SAT</div>
+                    </div>
+
+                    <!-- CALENDAR GRID -->
+                    <div class="calendar-grid" id="proposeGrid"></div>
+
+                    <!-- BUTTONS -->
+                    <div class="preference-buttons">
+                        <button class="btn-primary" onclick="submitProposedShift()">Submit</button>
+                        <span class="saved-text" id="proposeSavedText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // APP STATE
         const appState = {
             user: null,
             selectedShift: null,
             preferences: {},
+            proposedShift: {},
             allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack', 'Kevin', 'Liza'],
             approvedSchedule: {},
             savedTextTimeout: null,
-            proposeShiftOpen: false
+            proposeShiftOpen: true // TEMPORARY: set to true for testing. Will be controlled by Admin later.
         };
 
         // DATES
@@ -680,6 +730,7 @@
             setInterval(updateLiveTime, 1000);
             generateApprovedSchedule();
             generatePreferenceGrid();
+            generateProposeGrid();
         };
 
         // LIVE TIME
@@ -752,6 +803,7 @@
             document.getElementById('userInfoCard').classList.remove('hidden');
             document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
             document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+            document.getElementById('proposeShiftBtn').disabled = !appState.proposeShiftOpen;
         }
 
         // GO TO PREFERENCES
@@ -765,13 +817,22 @@
             document.getElementById('preferenceTitle').textContent = title;
         }
 
-        // GO TO MY PROPOSE SHIFT (placeholder - page not built yet)
+        // GO TO MY PROPOSE SHIFT
         function goToProposeShift() {
             if (!appState.proposeShiftOpen) {
                 alert('Not yet open. Admin has not started the scheduling window yet.');
                 return;
             }
-            alert('My Propose Shift page coming soon!');
+            document.getElementById('homePage').classList.remove('active');
+            document.getElementById('proposeShiftPage').classList.add('active');
+            document.getElementById('proposeUserName').textContent = `Hello, ${appState.user.name}!`;
+            document.getElementById('proposeUserShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+        }
+
+        // BACK TO HOME (FROM PROPOSE SHIFT PAGE)
+        function backToHomeFromPropose() {
+            document.getElementById('proposeShiftPage').classList.remove('active');
+            document.getElementById('homePage').classList.add('active');
         }
 
         // BACK TO HOME
@@ -785,6 +846,7 @@
             appState.user = null;
             appState.selectedShift = null;
             appState.preferences = {};
+            appState.proposedShift = {};
             
             document.getElementById('loginCard').classList.remove('hidden');
             document.getElementById('userInfoCard').classList.add('hidden');
@@ -796,10 +858,12 @@
             document.getElementById('staffLoginBtn').disabled = true;
             
             document.querySelectorAll('.preference-cell').forEach(cell => {
-                cell.classList.remove('pref-on', 'pref-off', 'pref-pto');
+                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
                 const dateKey = cell.getAttribute('data-key');
                 const select = document.getElementById(`select-${dateKey}`);
                 if (select) select.value = '';
+                const proposeSelect = document.getElementById(`propose-select-${dateKey}`);
+                if (proposeSelect) proposeSelect.value = '';
             });
         }
 
@@ -932,6 +996,77 @@
             } else {
                 delete appState.preferences[dateKey];
             }
+        }
+
+        // GENERATE MY PROPOSE SHIFT GRID
+        function generateProposeGrid() {
+            const grid = document.getElementById('proposeGrid');
+            let html = '';
+            let currentDate = new Date(pendingStart);
+
+            while (currentDate <= pendingEnd) {
+                const dateKey = currentDate.toISOString().split('T')[0];
+                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
+
+                html += `<div class="preference-cell" data-key="${dateKey}">
+                    <div class="date-label-small">${dayName}</div>
+                    <div class="date-label-small">${dateStr}</div>
+                    <select class="pref-select" id="propose-select-${dateKey}" onchange="handleProposeChange('${dateKey}', this.value)">
+                        <option value="">-- Select --</option>
+                        <option value="on">ON Shift</option>
+                        <option value="off">OFF Shift</option>
+                        <option value="available">Available Shift</option>
+                    </select>
+                </div>`;
+
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            grid.innerHTML = html;
+        }
+
+        // HANDLE MY PROPOSE SHIFT DROPDOWN CHANGE
+        function handleProposeChange(dateKey, value) {
+            if (!appState.user) {
+                alert('Please login first');
+                return;
+            }
+
+            const cell = document.querySelector(`#proposeShiftPage .preference-cell[data-key="${dateKey}"]`);
+            cell.classList.remove('pref-on', 'pref-off', 'pref-available');
+
+            if (value) {
+                appState.proposedShift[dateKey] = value;
+                cell.classList.add(`pref-${value}`);
+            } else {
+                delete appState.proposedShift[dateKey];
+            }
+        }
+
+        // SUBMIT MY PROPOSE SHIFT
+        function submitProposedShift() {
+            if (!appState.user) {
+                alert('Please login first');
+                return;
+            }
+
+            if (Object.keys(appState.proposedShift).length === 0) {
+                alert('Please select at least one date!');
+                return;
+            }
+
+            const saved = document.getElementById('proposeSavedText');
+            saved.classList.add('visible');
+            saved.textContent = '✓ Saved';
+
+            setTimeout(() => {
+                saved.classList.remove('visible');
+                saved.textContent = '';
+            }, 5000);
+
+            console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
+            alert('Your proposed shift was submitted! Awaiting Admin balancing.');
         }
 
         // SUBMIT PREFERENCES
