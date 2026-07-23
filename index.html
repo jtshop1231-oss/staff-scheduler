@@ -113,22 +113,23 @@
 
         .role-buttons {
             display: flex;
-            gap: 8px;
+            flex-direction: column;
+            gap: 12px;
             margin-bottom: 12px;
         }
 
         .role-btn {
             flex: 1;
-            padding: 10px;
+            padding: 20px;
             border: 2px solid #d4e8f0;
-            border-radius: 6px;
+            border-radius: 8px;
             background: #fff;
-            font-size: 10px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 800;
             cursor: pointer;
             transition: all 0.2s;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
             color: #2c5f7f;
         }
 
@@ -541,7 +542,7 @@
     <div class="header">
         <h1>AI STAFF SCHEDULER</h1>
         <div class="header-info">
-            <span id="deptDisplay" class="hidden"></span>
+            <span>Telemetry Department</span>
             <span id="liveTime">Loading...</span>
         </div>
     </div>
@@ -558,16 +559,6 @@
                     <div class="role-buttons">
                         <button class="role-btn staff" onclick="selectRole('staff', this)">👥 Staff</button>
                         <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
-                    </div>
-
-                    <div class="form-group" id="deptGroup">
-                        <label>Department / Unit</label>
-                        <select id="deptSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
-                            <option value="" selected disabled>Select your Unit/Department</option>
-                            <option value="IMU">IMU</option>
-                            <option value="ICU">ICU</option>
-                            <option value="Telemetry">Telemetry</option>
-                        </select>
                     </div>
 
                     <!-- STAFF LOGIN -->
@@ -604,12 +595,20 @@
                     </div>
                 </div>
 
-                <!-- LOGGED IN INFO -->
+                <!-- LOGGED IN INFO (STAFF) -->
                 <div class="card hidden" id="userInfoCard">
                     <h2 id="userName">Welcome</h2>
                     <p id="userShift"></p>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToPreferences()">📋 REQUEST PREFERENCES</button>
                     <button class="btn-primary" id="proposeShiftBtn" style="width: 100%; margin-bottom: 8px;" disabled title="Not yet open by Admin" onclick="goToProposeShift()">🗓️ MY PROPOSE SHIFT</button>
+                    <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
+                </div>
+
+                <!-- LOGGED IN INFO (ADMIN) -->
+                <div class="card hidden" id="adminInfoCard">
+                    <h2 id="adminName">Hello, Admin!</h2>
+                    <p>Manage staff schedules</p>
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToAdminStaffView()">👥 VIEW STAFF SCHEDULES</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
             </div>
@@ -715,7 +714,71 @@
         </div>
     </div>
 
+    <!-- ===== ADMIN: VIEW STAFF SCHEDULES PAGE ===== -->
+    <div class="page" id="adminStaffPage">
+        <div class="preference-container">
+            <!-- LEFT PANEL -->
+            <div class="preference-left">
+                <div class="card">
+                    <h2>Hello, Admin!</h2>
+                    <p>Select a staff member to view</p>
+
+                    <div class="form-group">
+                        <label>Filter by Unit</label>
+                        <select id="adminUnitFilter" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateAdminStaffSelect()">
+                            <option value="All">All Units</option>
+                            <option value="IMU">IMU</option>
+                            <option value="ICU">ICU</option>
+                            <option value="Telemetry">Telemetry</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Select Staff</label>
+                        <select id="adminStaffSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="renderAdminStaffTables()"></select>
+                    </div>
+
+                    <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromAdminStaff()">← BACK</button>
+                </div>
+            </div>
+
+            <!-- CENTER PANEL: TWO TABLES SIDE BY SIDE -->
+            <div class="preference-center" style="flex-direction: row; gap: 12px; align-items: stretch;">
+                <div class="preference-section" style="flex: 1;">
+                    <h2 id="adminPrefTitle" style="font-size: 18px;">Preferences</h2>
+                    <div class="preference-info" style="font-size: 13px;">8/9 - 9/19 (6 weeks)</div>
+                    <div class="calendar-grid">
+                        <div class="day-header">SUN</div>
+                        <div class="day-header">MON</div>
+                        <div class="day-header">TUE</div>
+                        <div class="day-header">WED</div>
+                        <div class="day-header">THU</div>
+                        <div class="day-header">FRI</div>
+                        <div class="day-header">SAT</div>
+                    </div>
+                    <div class="calendar-grid" id="adminPrefGrid"></div>
+                </div>
+
+                <div class="preference-section" style="flex: 1;">
+                    <h2 id="adminProposeTitle" style="font-size: 18px;">Propose Shift</h2>
+                    <div class="preference-info" style="font-size: 13px;">8/9 - 9/19 (6 weeks)</div>
+                    <div class="calendar-grid">
+                        <div class="day-header">SUN</div>
+                        <div class="day-header">MON</div>
+                        <div class="day-header">TUE</div>
+                        <div class="day-header">WED</div>
+                        <div class="day-header">THU</div>
+                        <div class="day-header">FRI</div>
+                        <div class="day-header">SAT</div>
+                    </div>
+                    <div class="calendar-grid" id="adminProposeGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+
         // APP STATE
         const appState = {
             user: null,
@@ -762,16 +825,13 @@
 
             const staffForm = document.getElementById('staffLoginForm');
             const adminForm = document.getElementById('adminLoginForm');
-            const deptGroup = document.getElementById('deptGroup');
 
             if (role === 'staff') {
                 staffForm.classList.remove('hidden');
                 adminForm.classList.add('hidden');
-                deptGroup.classList.remove('hidden');
             } else {
                 staffForm.classList.add('hidden');
                 adminForm.classList.remove('hidden');
-                deptGroup.classList.add('hidden');
             }
         }
 
@@ -794,12 +854,7 @@
                 alert('Please select a shift');
                 return;
             }
-            const unit = document.getElementById('deptSelect').value;
-            if (!unit) {
-                alert('Please select your Unit/Department');
-                return;
-            }
-            appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
+            appState.user = { role: 'staff', name, shift: appState.selectedShift };
             showHomepage();
         }
 
@@ -808,7 +863,7 @@
             const username = document.getElementById('adminUsername').value;
             const password = document.getElementById('adminPassword').value;
             if (username === 'admin' && password === 'admin123') {
-                appState.user = { role: 'admin', name: 'Admin', unit: 'All Units' };
+                appState.user = { role: 'admin', name: 'Admin' };
                 showHomepage();
             } else {
                 alert('Invalid credentials');
@@ -818,14 +873,17 @@
         // SHOW HOMEPAGE (LOGGED IN)
         function showHomepage() {
             document.getElementById('loginCard').classList.add('hidden');
-            document.getElementById('userInfoCard').classList.remove('hidden');
-            document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
-            document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
-            document.getElementById('proposeShiftBtn').disabled = !appState.proposeShiftOpen;
 
-            const dept = document.getElementById('deptDisplay');
-            dept.textContent = appState.user.unit;
-            dept.classList.remove('hidden');
+            if (appState.user.role === 'admin') {
+                document.getElementById('adminInfoCard').classList.remove('hidden');
+                document.getElementById('userInfoCard').classList.add('hidden');
+            } else {
+                document.getElementById('userInfoCard').classList.remove('hidden');
+                document.getElementById('adminInfoCard').classList.add('hidden');
+                document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
+                document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+                document.getElementById('proposeShiftBtn').disabled = !appState.proposeShiftOpen;
+            }
         }
 
         // GO TO PREFERENCES
@@ -857,6 +915,93 @@
             document.getElementById('homePage').classList.add('active');
         }
 
+        // MOCK STAFF-TO-UNIT MAPPING (for demo purposes only - no backend yet)
+        const staffUnitMap = {};
+        (function assignMockUnits() {
+            const units = ['IMU', 'ICU', 'Telemetry'];
+            appState.allStaff.forEach((name, i) => {
+                staffUnitMap[name] = units[i % units.length];
+            });
+        })();
+
+        // GO TO ADMIN: VIEW STAFF SCHEDULES
+        function goToAdminStaffView() {
+            document.getElementById('homePage').classList.remove('active');
+            document.getElementById('adminStaffPage').classList.add('active');
+            document.getElementById('adminUnitFilter').value = 'All';
+            populateAdminStaffSelect();
+        }
+
+        // BACK TO HOME (FROM ADMIN STAFF VIEW)
+        function backToHomeFromAdminStaff() {
+            document.getElementById('adminStaffPage').classList.remove('active');
+            document.getElementById('homePage').classList.add('active');
+        }
+
+        // POPULATE STAFF DROPDOWN BASED ON UNIT FILTER
+        function populateAdminStaffSelect() {
+            const unit = document.getElementById('adminUnitFilter').value;
+            const select = document.getElementById('adminStaffSelect');
+            const filtered = appState.allStaff.filter(name => unit === 'All' || staffUnitMap[name] === unit);
+
+            select.innerHTML = filtered.map(name => `<option value="${name}">${name} (${staffUnitMap[name]})</option>`).join('');
+            renderAdminStaffTables();
+        }
+
+        // GENERATE MOCK VALUE FOR A GIVEN STAFF + DAY INDEX (DEMO DATA ONLY - NO BACKEND YET)
+        function getMockValue(staffIndex, dayIndex, options) {
+            return options[(staffIndex + dayIndex) % options.length];
+        }
+
+        // RENDER READ-ONLY CALENDAR FOR SELECTED STAFF (PREFERENCES + PROPOSE SHIFT)
+        function renderAdminStaffTables() {
+            const staffName = document.getElementById('adminStaffSelect').value;
+            if (!staffName) return;
+
+            const staffIndex = appState.allStaff.indexOf(staffName);
+
+            document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
+            document.getElementById('adminProposeTitle').textContent = `${staffName}'s Propose Shift`;
+
+            // PREFERENCES GRID (Request ON / OFF / PTO)
+            const prefOptions = ['on', 'off', 'pto'];
+            const prefLabels = { on: 'Request ON', off: 'Request OFF', pto: 'Request PTO' };
+            let prefHtml = '';
+            let currentDate = new Date(pendingStart);
+            let dayIndex = 0;
+
+            while (currentDate <= pendingEnd) {
+                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const value = getMockValue(staffIndex, dayIndex, prefOptions);
+                prefHtml += `<div class="preference-cell pref-${value}">
+                    <div class="date-label-small">${dateStr}</div>
+                    <div style="font-size: 10px;">${prefLabels[value]}</div>
+                </div>`;
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayIndex++;
+            }
+            document.getElementById('adminPrefGrid').innerHTML = prefHtml;
+
+            // PROPOSE SHIFT GRID (ON / OFF / Available)
+            const proposeOptions = ['on', 'off', 'available'];
+            const proposeLabels = { on: 'ON Shift', off: 'OFF Shift', available: 'Available' };
+            let proposeHtml = '';
+            currentDate = new Date(pendingStart);
+            dayIndex = 0;
+
+            while (currentDate <= pendingEnd) {
+                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const value = getMockValue(staffIndex + 1, dayIndex, proposeOptions);
+                proposeHtml += `<div class="preference-cell pref-${value}">
+                    <div class="date-label-small">${dateStr}</div>
+                    <div style="font-size: 10px;">${proposeLabels[value]}</div>
+                </div>`;
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayIndex++;
+            }
+            document.getElementById('adminProposeGrid').innerHTML = proposeHtml;
+        }
+
         // BACK TO HOME
         function backToHome() {
             document.getElementById('preferencePage').classList.remove('active');
@@ -872,13 +1017,10 @@
             
             document.getElementById('loginCard').classList.remove('hidden');
             document.getElementById('userInfoCard').classList.add('hidden');
+            document.getElementById('adminInfoCard').classList.add('hidden');
             document.getElementById('staffName').value = '';
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
-            document.getElementById('deptSelect').selectedIndex = 0;
-            document.getElementById('deptGroup').classList.remove('hidden');
-            document.getElementById('deptDisplay').classList.add('hidden');
-            document.getElementById('deptDisplay').textContent = '';
             document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('staffLoginBtn').disabled = true;
