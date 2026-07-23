@@ -541,7 +541,7 @@
     <div class="header">
         <h1>AI STAFF SCHEDULER</h1>
         <div class="header-info">
-            <span>Telemetry Department</span>
+            <span id="deptDisplay" class="hidden"></span>
             <span id="liveTime">Loading...</span>
         </div>
     </div>
@@ -554,6 +554,15 @@
                 <div class="card login-card" id="loginCard">
                     <h2>Welcome</h2>
                     <p>Select your role to begin</p>
+
+                    <div class="form-group">
+                        <label>Department / Unit</label>
+                        <select id="deptSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="IMU">IMU</option>
+                            <option value="ICU">ICU</option>
+                            <option value="Telemetry">Telemetry</option>
+                        </select>
+                    </div>
 
                     <div class="role-buttons">
                         <button class="role-btn staff" onclick="selectRole('staff', this)">👥 Staff</button>
@@ -781,7 +790,8 @@
                 alert('Please select a shift');
                 return;
             }
-            appState.user = { role: 'staff', name, shift: appState.selectedShift };
+            const unit = document.getElementById('deptSelect').value;
+            appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
             showHomepage();
         }
 
@@ -790,7 +800,8 @@
             const username = document.getElementById('adminUsername').value;
             const password = document.getElementById('adminPassword').value;
             if (username === 'admin' && password === 'admin123') {
-                appState.user = { role: 'admin', name: 'Admin' };
+                const unit = document.getElementById('deptSelect').value;
+                appState.user = { role: 'admin', name: 'Admin', unit };
                 showHomepage();
             } else {
                 alert('Invalid credentials');
@@ -804,6 +815,10 @@
             document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
             document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
             document.getElementById('proposeShiftBtn').disabled = !appState.proposeShiftOpen;
+
+            const dept = document.getElementById('deptDisplay');
+            dept.textContent = appState.user.unit;
+            dept.classList.remove('hidden');
         }
 
         // GO TO PREFERENCES
@@ -853,6 +868,9 @@
             document.getElementById('staffName').value = '';
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
+            document.getElementById('deptSelect').selectedIndex = 0;
+            document.getElementById('deptDisplay').classList.add('hidden');
+            document.getElementById('deptDisplay').textContent = '';
             document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('staffLoginBtn').disabled = true;
