@@ -555,18 +555,19 @@
                     <h2>Welcome</h2>
                     <p>Select your role to begin</p>
 
+                    <div class="role-buttons">
+                        <button class="role-btn staff" onclick="selectRole('staff', this)">👥 Staff</button>
+                        <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
+                    </div>
+
                     <div class="form-group">
                         <label>Department / Unit</label>
                         <select id="deptSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="" selected disabled>Select your Unit/Department</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
                             <option value="Telemetry">Telemetry</option>
                         </select>
-                    </div>
-
-                    <div class="role-buttons">
-                        <button class="role-btn staff" onclick="selectRole('staff', this)">👥 Staff</button>
-                        <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
                     </div>
 
                     <!-- STAFF LOGIN -->
@@ -791,6 +792,10 @@
                 return;
             }
             const unit = document.getElementById('deptSelect').value;
+            if (!unit) {
+                alert('Please select your Unit/Department');
+                return;
+            }
             appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
             showHomepage();
         }
@@ -799,8 +804,12 @@
         function loginAdmin() {
             const username = document.getElementById('adminUsername').value;
             const password = document.getElementById('adminPassword').value;
+            const unit = document.getElementById('deptSelect').value;
+            if (!unit) {
+                alert('Please select your Unit/Department');
+                return;
+            }
             if (username === 'admin' && password === 'admin123') {
-                const unit = document.getElementById('deptSelect').value;
                 appState.user = { role: 'admin', name: 'Admin', unit };
                 showHomepage();
             } else {
