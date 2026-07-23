@@ -560,7 +560,7 @@
                         <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="deptGroup">
                         <label>Department / Unit</label>
                         <select id="deptSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
                             <option value="" selected disabled>Select your Unit/Department</option>
@@ -762,13 +762,16 @@
 
             const staffForm = document.getElementById('staffLoginForm');
             const adminForm = document.getElementById('adminLoginForm');
+            const deptGroup = document.getElementById('deptGroup');
 
             if (role === 'staff') {
                 staffForm.classList.remove('hidden');
                 adminForm.classList.add('hidden');
+                deptGroup.classList.remove('hidden');
             } else {
                 staffForm.classList.add('hidden');
                 adminForm.classList.remove('hidden');
+                deptGroup.classList.add('hidden');
             }
         }
 
@@ -804,13 +807,8 @@
         function loginAdmin() {
             const username = document.getElementById('adminUsername').value;
             const password = document.getElementById('adminPassword').value;
-            const unit = document.getElementById('deptSelect').value;
-            if (!unit) {
-                alert('Please select your Unit/Department');
-                return;
-            }
             if (username === 'admin' && password === 'admin123') {
-                appState.user = { role: 'admin', name: 'Admin', unit };
+                appState.user = { role: 'admin', name: 'Admin', unit: 'All Units' };
                 showHomepage();
             } else {
                 alert('Invalid credentials');
@@ -878,6 +876,7 @@
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
             document.getElementById('deptSelect').selectedIndex = 0;
+            document.getElementById('deptGroup').classList.remove('hidden');
             document.getElementById('deptDisplay').classList.add('hidden');
             document.getElementById('deptDisplay').textContent = '';
             document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
