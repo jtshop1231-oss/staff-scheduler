@@ -66,6 +66,12 @@
             height: 100%;
         }
 
+        .main-container.welcome-only {
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 60px;
+        }
+
         .left-panel {
             width: 380px;
             display: flex;
@@ -360,7 +366,7 @@
             border-radius: 10px;
             padding: 12px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-            max-height: 65%;
+            max-height: 100%;
             overflow-y: auto;
             width: 100%;
             border: 1px solid #000000;
@@ -549,7 +555,7 @@
 
     <!-- ===== HOMEPAGE PAGE ===== -->
     <div class="page active" id="homePage">
-        <div class="main-container">
+        <div class="main-container welcome-only" id="mainContainer">
             <!-- LEFT PANEL: LOGIN -->
             <div class="left-panel">
                 <div class="card login-card" id="loginCard">
@@ -626,7 +632,7 @@
             </div>
 
             <!-- CENTER PANEL: APPROVED SCHEDULE -->
-            <div class="center-panel">
+            <div class="center-panel hidden" id="centerPanel">
                 <div class="schedule-section">
                     <h2>✅ Approved Schedule</h2>
                     <div class="schedule-info">6/28 - 8/8 (LOCKED)</div>
@@ -925,6 +931,9 @@
             const dept = document.getElementById('deptDisplay');
             dept.textContent = appState.user.unit;
             dept.classList.remove('hidden');
+
+            document.getElementById('centerPanel').classList.remove('hidden');
+            document.getElementById('mainContainer').classList.remove('welcome-only');
         }
 
         // GO TO PREFERENCES
@@ -1066,6 +1075,8 @@
             document.getElementById('deptDisplay').classList.add('hidden');
             document.getElementById('deptDisplay').textContent = '';
             resetRoleSelection();
+            document.getElementById('centerPanel').classList.add('hidden');
+            document.getElementById('mainContainer').classList.add('welcome-only');
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('staffLoginBtn').disabled = true;
             
