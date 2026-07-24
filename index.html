@@ -69,7 +69,7 @@
         .main-container.welcome-only {
             justify-content: center;
             align-items: flex-start;
-            padding-top: 250px;
+            padding-top: 60px;
         }
 
         .left-panel {
@@ -127,7 +127,7 @@
         .role-btn {
             flex: 1;
             padding: 13px;
-            border: 1px solid #000000;
+            border: 2px solid #000000;
             border-radius: 6px;
             background: #fff;
             font-size: 12px;
@@ -267,6 +267,21 @@
             font-weight: 800;
         }
 
+        .for-approval-section {
+            max-height: 40%;
+            margin-bottom: 12px;
+            border-color: #ffb300;
+        }
+
+        .for-approval-section h2 {
+            color: #b8860b;
+        }
+
+        .for-approval-section .schedule-info {
+            color: #b8860b;
+            font-weight: 700;
+        }
+
         .schedule-info {
             text-align: center;
             font-size: 15px;
@@ -366,10 +381,14 @@
             border-radius: 10px;
             padding: 12px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-            max-height: 65%;
+            max-height: 100%;
             overflow-y: auto;
             width: 100%;
             border: 1px solid #000000;
+        }
+
+        #adminStaffPage .preference-section {
+            max-height: 65%;
         }
 
         .preference-section h2 {
@@ -633,6 +652,18 @@
 
             <!-- CENTER PANEL: APPROVED SCHEDULE -->
             <div class="center-panel hidden" id="centerPanel">
+                <div class="schedule-section for-approval-section hidden" id="forApprovalSection">
+                    <h2>🟡 For Approval Schedule</h2>
+                    <div class="schedule-info">8/9 - 9/19 (LIVE - staff submitting)</div>
+
+                    <table class="schedule-table" id="forApprovalSchedule">
+                        <thead>
+                            <tr id="forApprovalHeader"></tr>
+                        </thead>
+                        <tbody id="forApprovalBody"></tbody>
+                    </table>
+                </div>
+
                 <div class="schedule-section">
                     <h2>✅ Approved Schedule</h2>
                     <div class="schedule-info">6/28 - 8/8 (LOCKED)</div>
@@ -920,6 +951,14 @@
             if (appState.user.role === 'admin') {
                 document.getElementById('adminInfoCard').classList.remove('hidden');
                 document.getElementById('userInfoCard').classList.add('hidden');
+
+                const forApproval = document.getElementById('forApprovalSection');
+                if (appState.proposeShiftOpen) {
+                    generateForApprovalSchedule();
+                    forApproval.classList.remove('hidden');
+                } else {
+                    forApproval.classList.add('hidden');
+                }
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
@@ -971,6 +1010,15 @@
             const units = ['IMU', 'ICU', 'Telemetry'];
             appState.allStaff.forEach((name, i) => {
                 staffUnitMap[name] = units[i % units.length];
+            });
+        })();
+
+        // MOCK STAFF-TO-SHIFT-TYPE MAPPING (for demo purposes only - no backend yet)
+        const staffShiftTypeMap = {};
+        (function assignMockShiftTypes() {
+            const types = ['day', 'night'];
+            appState.allStaff.forEach((name, i) => {
+                staffShiftTypeMap[name] = types[i % types.length];
             });
         })();
 
@@ -1076,6 +1124,7 @@
             document.getElementById('deptDisplay').textContent = '';
             resetRoleSelection();
             document.getElementById('centerPanel').classList.add('hidden');
+            document.getElementById('forApprovalSection').classList.add('hidden');
             document.getElementById('mainContainer').classList.add('welcome-only');
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('staffLoginBtn').disabled = true;
@@ -1174,6 +1223,65 @@
             html += '</tr>';
             body.innerHTML = html;
         }
+
+        // GENERATE FOR APPROVAL SCHEDULE (mock/demo data - shows staff who marked "ON" in My Propose Shift)
+        function generateForApprovalSchedule() {
+            const header = document.getElementById('forApprovalHeader');
+            const body = document.getElementById('forApprovalBody');
+            header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
+
+            const proposeOptions = ['on', 'off', 'available'];
+            let html = '<tr>';
+            let dayOfWeek = pendingStart.getDay();
+            let currentDate = new Date(pendingStart);
+            let dayIndex = 0;
+
+            for (let i = 0; i < dayOfWeek; i++) {
+                html += '<td></td>';
+            }
+
+            while (currentDate <= pendingEnd) {
+                if (dayOfWeek === 7) {
+                    html += '</tr><tr>';
+                    dayOfWeek = 0;
+                }
+
+                const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dayStaff = [];
+                const nightStaff = [];
+
+                appState.allStaff.forEach((name, staffIndex) => {
+                    const value = getMockValue(staffIndex + 1, dayIndex, proposeOptions);
+                    if (value === 'on') {
+                        if (staffShiftTypeMap[name] === 'day') dayStaff.push(name);
+                        else nightStaff.push(name);
+                    }
+                });
+
+                html += `<td>
+                    <div class="date-cell">${dateStr}</div>
+                    <div class="shift-info">
+                        <span class="shift-label">Day:</span> <span class="staff-names">${dayStaff.length ? dayStaff.join(', ') : '—'}</span>
+                    </div>
+                    <div class="shift-info">
+                        <span class="shift-label">Night:</span> <span class="staff-names">${nightStaff.length ? nightStaff.join(', ') : '—'}</span>
+                    </div>
+                </td>`;
+
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayOfWeek++;
+                dayIndex++;
+            }
+
+            while (dayOfWeek < 7) {
+                html += '<td></td>';
+                dayOfWeek++;
+            }
+
+            html += '</tr>';
+            body.innerHTML = html;
+        }
+
 
         // GENERATE PREFERENCE GRID
         function generatePreferenceGrid() {
