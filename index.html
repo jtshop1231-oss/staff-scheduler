@@ -280,57 +280,26 @@
             font-weight: 700;
         }
 
-        .summary-section {
+        .roster-section {
             margin-top: 20px;
             border-top: 2px dashed #ccc;
             padding-top: 16px;
         }
 
-        .summary-section h3 {
+        .roster-section h3 {
             text-align: center;
             font-size: 16px;
             color: #2c5f7f;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             font-weight: 800;
         }
 
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        .summary-card {
-            border-radius: 8px;
-            padding: 10px;
-            border: 1px solid #000000;
-        }
-
-        .summary-complete {
-            background: #e6f7f5;
-        }
-
-        .summary-incomplete {
-            background: #fff0e6;
-        }
-
-        .summary-pto {
-            background: #e8f0fc;
-        }
-
-        .summary-label {
-            font-weight: 800;
-            font-size: 12px;
-            margin-bottom: 6px;
-            text-align: center;
-        }
-
-        .summary-names {
-            font-size: 11px;
+        .roster-names {
+            font-size: 13px;
             font-weight: 600;
-            color: #2c5f7f;
+            color: #00a8a8;
             text-align: center;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         .schedule-info {
@@ -696,6 +665,17 @@
                 <div class="card hidden" id="adminInfoCard">
                     <h2 id="adminName">Hello, Admin!</h2>
                     <p>Manage staff schedules</p>
+
+                    <div class="form-group">
+                        <label>Managing Unit</label>
+                        <select id="adminManageUnit" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="handleAdminUnitChange()">
+                            <option value="All">All Units</option>
+                            <option value="IMU">IMU</option>
+                            <option value="ICU">ICU</option>
+                            <option value="Telemetry">Telemetry</option>
+                        </select>
+                    </div>
+
                     <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" id="forApprovalBtn" onclick="goToForApproval()">🟡 FOR APPROVAL SCHEDULE</button>
                     <p id="forApprovalNotice" class="hidden" style="font-size: 10px; color: #b8860b; margin-bottom: 8px;">Click above to view live staff submissions</p>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToAdminStaffView()">👥 VIEW STAFF SCHEDULES</button>
@@ -742,22 +722,9 @@
                         <tbody id="forApprovalBody"></tbody>
                     </table>
 
-                    <div class="summary-section">
-                        <h3>📋 Submission Summary (Admin Only)</h3>
-                        <div class="summary-grid">
-                            <div class="summary-card summary-complete">
-                                <div class="summary-label">✅ Complete</div>
-                                <div class="summary-names" id="summaryComplete"></div>
-                            </div>
-                            <div class="summary-card summary-incomplete">
-                                <div class="summary-label">⚠️ Incomplete</div>
-                                <div class="summary-names" id="summaryIncomplete"></div>
-                            </div>
-                            <div class="summary-card summary-pto">
-                                <div class="summary-label">🏖️ PTO / Vacation Requests</div>
-                                <div class="summary-names" id="summaryPTO"></div>
-                            </div>
-                        </div>
+                    <div class="roster-section">
+                        <h3>👥 Staff in <span id="rosterUnitLabel">All Units</span></h3>
+                        <div class="roster-names" id="rosterNames"></div>
                     </div>
                 </div>
             </div>
@@ -922,7 +889,8 @@
             allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack', 'Kevin', 'Liza'],
             approvedSchedule: {},
             savedTextTimeout: null,
-            proposeShiftOpen: true // TEMPORARY: set to true for testing. Will be controlled by Admin later.
+            proposeShiftOpen: true, // TEMPORARY: set to true for testing. Will be controlled by Admin later.
+            selectedAdminUnit: 'All'
         };
 
         // DATES
@@ -1039,6 +1007,9 @@
 
                 document.getElementById('forApprovalBtn').disabled = !appState.proposeShiftOpen;
                 document.getElementById('forApprovalNotice').classList.toggle('hidden', !appState.proposeShiftOpen);
+
+                appState.selectedAdminUnit = 'All';
+                document.getElementById('adminManageUnit').value = 'All';
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
@@ -1048,11 +1019,18 @@
             }
 
             const dept = document.getElementById('deptDisplay');
-            dept.textContent = appState.user.unit;
+            dept.textContent = appState.user.role === 'admin' ? 'All Units' : appState.user.unit;
             dept.classList.remove('hidden');
 
             document.getElementById('centerPanel').classList.remove('hidden');
             document.getElementById('mainContainer').classList.remove('welcome-only');
+        }
+
+        // HANDLE ADMIN CHANGING WHICH UNIT THEY'RE MANAGING
+        function handleAdminUnitChange() {
+            const unit = document.getElementById('adminManageUnit').value;
+            appState.selectedAdminUnit = unit;
+            document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
         }
 
         // GO TO PREFERENCES
@@ -1329,6 +1307,9 @@
             const body = document.getElementById('forApprovalBody');
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
 
+            const unit = appState.selectedAdminUnit || 'All';
+            const staffInUnit = appState.allStaff.filter(name => unit === 'All' || staffUnitMap[name] === unit);
+
             const proposeOptions = ['on', 'off', 'available'];
             let html = '<tr>';
             let dayOfWeek = pendingStart.getDay();
@@ -1350,6 +1331,7 @@
                 const nightStaff = [];
 
                 appState.allStaff.forEach((name, staffIndex) => {
+                    if (!staffInUnit.includes(name)) return;
                     const value = getMockValue(staffIndex + 1, dayIndex, proposeOptions);
                     if (value === 'on') {
                         if (staffShiftTypeMap[name] === 'day') dayStaff.push(name);
@@ -1380,41 +1362,14 @@
             html += '</tr>';
             body.innerHTML = html;
 
-            generateForApprovalSummary();
+            generateStaffRoster(staffInUnit, unit);
         }
 
-        // GENERATE SUBMISSION SUMMARY (mock/demo data - Admin only)
-        function generateForApprovalSummary() {
-            const complete = [];
-            const incomplete = [];
-            const ptoRequests = [];
-            const prefOptions = ['on', 'off', 'pto'];
-
-            appState.allStaff.forEach((name, staffIndex) => {
-                // DEMO PATTERN: even index = complete, odd index = incomplete (placeholder until real backend tracks actual submission status)
-                if (staffIndex % 2 === 0) {
-                    complete.push(name);
-                } else {
-                    incomplete.push(name);
-                }
-
-                // Check mock Preferences data for any PTO request across the date range
-                let hasPTO = false;
-                let currentDate = new Date(pendingStart);
-                let dayIndex = 0;
-                while (currentDate <= pendingEnd && !hasPTO) {
-                    if (getMockValue(staffIndex, dayIndex, prefOptions) === 'pto') hasPTO = true;
-                    currentDate.setDate(currentDate.getDate() + 1);
-                    dayIndex++;
-                }
-                if (hasPTO) ptoRequests.push(name);
-            });
-
-            document.getElementById('summaryComplete').textContent = complete.length ? complete.join(', ') : '—';
-            document.getElementById('summaryIncomplete').textContent = incomplete.length ? incomplete.join(', ') : '—';
-            document.getElementById('summaryPTO').textContent = ptoRequests.length ? ptoRequests.join(', ') : '—';
+        // LIST ALL STAFF NAMES FOR THE SELECTED UNIT
+        function generateStaffRoster(staffInUnit, unit) {
+            document.getElementById('rosterUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
+            document.getElementById('rosterNames').textContent = staffInUnit.length ? staffInUnit.join(', ') : 'No staff in this unit';
         }
-
 
         // GENERATE PREFERENCE GRID
         function generatePreferenceGrid() {
