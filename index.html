@@ -280,6 +280,59 @@
             font-weight: 700;
         }
 
+        .summary-section {
+            margin-top: 20px;
+            border-top: 2px dashed #ccc;
+            padding-top: 16px;
+        }
+
+        .summary-section h3 {
+            text-align: center;
+            font-size: 16px;
+            color: #2c5f7f;
+            margin-bottom: 12px;
+            font-weight: 800;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .summary-card {
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid #000000;
+        }
+
+        .summary-complete {
+            background: #e6f7f5;
+        }
+
+        .summary-incomplete {
+            background: #fff0e6;
+        }
+
+        .summary-pto {
+            background: #e8f0fc;
+        }
+
+        .summary-label {
+            font-weight: 800;
+            font-size: 12px;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .summary-names {
+            font-size: 11px;
+            font-weight: 600;
+            color: #2c5f7f;
+            text-align: center;
+            line-height: 1.5;
+        }
+
         .schedule-info {
             text-align: center;
             font-size: 15px;
@@ -688,6 +741,24 @@
                         </thead>
                         <tbody id="forApprovalBody"></tbody>
                     </table>
+
+                    <div class="summary-section">
+                        <h3>📋 Submission Summary (Admin Only)</h3>
+                        <div class="summary-grid">
+                            <div class="summary-card summary-complete">
+                                <div class="summary-label">✅ Complete</div>
+                                <div class="summary-names" id="summaryComplete"></div>
+                            </div>
+                            <div class="summary-card summary-incomplete">
+                                <div class="summary-label">⚠️ Incomplete</div>
+                                <div class="summary-names" id="summaryIncomplete"></div>
+                            </div>
+                            <div class="summary-card summary-pto">
+                                <div class="summary-label">🏖️ PTO / Vacation Requests</div>
+                                <div class="summary-names" id="summaryPTO"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1308,6 +1379,40 @@
 
             html += '</tr>';
             body.innerHTML = html;
+
+            generateForApprovalSummary();
+        }
+
+        // GENERATE SUBMISSION SUMMARY (mock/demo data - Admin only)
+        function generateForApprovalSummary() {
+            const complete = [];
+            const incomplete = [];
+            const ptoRequests = [];
+            const prefOptions = ['on', 'off', 'pto'];
+
+            appState.allStaff.forEach((name, staffIndex) => {
+                // DEMO PATTERN: even index = complete, odd index = incomplete (placeholder until real backend tracks actual submission status)
+                if (staffIndex % 2 === 0) {
+                    complete.push(name);
+                } else {
+                    incomplete.push(name);
+                }
+
+                // Check mock Preferences data for any PTO request across the date range
+                let hasPTO = false;
+                let currentDate = new Date(pendingStart);
+                let dayIndex = 0;
+                while (currentDate <= pendingEnd && !hasPTO) {
+                    if (getMockValue(staffIndex, dayIndex, prefOptions) === 'pto') hasPTO = true;
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    dayIndex++;
+                }
+                if (hasPTO) ptoRequests.push(name);
+            });
+
+            document.getElementById('summaryComplete').textContent = complete.length ? complete.join(', ') : '—';
+            document.getElementById('summaryIncomplete').textContent = incomplete.length ? incomplete.join(', ') : '—';
+            document.getElementById('summaryPTO').textContent = ptoRequests.length ? ptoRequests.join(', ') : '—';
         }
 
 
