@@ -280,26 +280,29 @@
             font-weight: 700;
         }
 
-        .roster-section {
-            margin-top: 20px;
-            border-top: 2px dashed #ccc;
-            padding-top: 16px;
+        .status-section {
+            margin-top: 12px;
         }
 
-        .roster-section h3 {
-            text-align: center;
-            font-size: 16px;
-            color: #2c5f7f;
-            margin-bottom: 10px;
+        .status-section .schedule-table td {
+            text-align: left;
+            padding: 8px 10px;
+        }
+
+        .status-section .schedule-table td:first-child {
             font-weight: 800;
+            color: #2c5f7f;
+            text-align: center;
         }
 
-        .roster-names {
-            font-size: 13px;
-            font-weight: 600;
+        .status-ok {
             color: #00a8a8;
-            text-align: center;
-            line-height: 1.6;
+            font-weight: 700;
+        }
+
+        .status-warn {
+            color: #d84315;
+            font-weight: 700;
         }
 
         .schedule-info {
@@ -721,11 +724,18 @@
                         </thead>
                         <tbody id="forApprovalBody"></tbody>
                     </table>
+                </div>
 
-                    <div class="roster-section">
-                        <h3>👥 Staff in <span id="rosterUnitLabel">All Units</span></h3>
-                        <div class="roster-names" id="rosterNames"></div>
-                    </div>
+                <div class="schedule-section status-section">
+                    <h2>📋 Staff Schedule Status</h2>
+                    <div class="schedule-info" id="statusUnitLabel">All Units</div>
+
+                    <table class="schedule-table">
+                        <thead>
+                            <tr><th style="width: 30%;">Staff</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="statusBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1362,13 +1372,36 @@
             html += '</tr>';
             body.innerHTML = html;
 
-            generateStaffRoster(staffInUnit, unit);
+            generateStaffStatusList(staffInUnit, unit);
         }
 
-        // LIST ALL STAFF NAMES FOR THE SELECTED UNIT
-        function generateStaffRoster(staffInUnit, unit) {
-            document.getElementById('rosterUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
-            document.getElementById('rosterNames').textContent = staffInUnit.length ? staffInUnit.join(', ') : 'No staff in this unit';
+        // LIST PER-STAFF SUBMISSION STATUS (mock/demo pattern - no real backend tracking yet)
+        function generateStaffStatusList(staffInUnit, unit) {
+            document.getElementById('statusUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
+
+            const totalDays = Math.round((pendingEnd - pendingStart) / (1000 * 60 * 60 * 24)) + 1;
+            let html = '';
+
+            staffInUnit.forEach((name) => {
+                const staffIndex = appState.allStaff.indexOf(name);
+                let statusHTML;
+
+                // DEMO PATTERN ONLY: cycles through sample statuses until real submission tracking exists
+                const pattern = staffIndex % 4;
+                if (pattern === 0) {
+                    statusHTML = `<span class="status-ok">✅ Complete — all ${totalDays} days submitted</span>`;
+                } else if (pattern === 1) {
+                    statusHTML = `<span class="status-warn">⚠️ Incomplete — missing 3 of ${totalDays} days</span>`;
+                } else if (pattern === 2) {
+                    statusHTML = `<span class="status-warn">❌ Conflict — marked both ON and OFF on the same date</span>`;
+                } else {
+                    statusHTML = `<span class="status-ok">✅ Complete — all ${totalDays} days submitted</span>`;
+                }
+
+                html += `<tr><td>${name}</td><td>${statusHTML}</td></tr>`;
+            });
+
+            document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff in this unit</td></tr>';
         }
 
         // GENERATE PREFERENCE GRID
