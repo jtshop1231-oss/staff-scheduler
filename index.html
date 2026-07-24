@@ -268,8 +268,6 @@
         }
 
         .for-approval-section {
-            max-height: 40%;
-            margin-bottom: 12px;
             border-color: #ffb300;
         }
 
@@ -645,6 +643,8 @@
                 <div class="card hidden" id="adminInfoCard">
                     <h2 id="adminName">Hello, Admin!</h2>
                     <p>Manage staff schedules</p>
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" id="forApprovalBtn" onclick="goToForApproval()">🟡 FOR APPROVAL SCHEDULE</button>
+                    <p id="forApprovalNotice" class="hidden" style="font-size: 10px; color: #b8860b; margin-bottom: 8px;">Click above to view live staff submissions</p>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToAdminStaffView()">👥 VIEW STAFF SCHEDULES</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
@@ -652,18 +652,6 @@
 
             <!-- CENTER PANEL: APPROVED SCHEDULE -->
             <div class="center-panel hidden" id="centerPanel">
-                <div class="schedule-section for-approval-section hidden" id="forApprovalSection">
-                    <h2>🟡 For Approval Schedule</h2>
-                    <div class="schedule-info">8/9 - 9/19 (LIVE - staff submitting)</div>
-
-                    <table class="schedule-table" id="forApprovalSchedule">
-                        <thead>
-                            <tr id="forApprovalHeader"></tr>
-                        </thead>
-                        <tbody id="forApprovalBody"></tbody>
-                    </table>
-                </div>
-
                 <div class="schedule-section">
                     <h2>✅ Approved Schedule</h2>
                     <div class="schedule-info">6/28 - 8/8 (LOCKED)</div>
@@ -673,6 +661,32 @@
                             <tr id="scheduleHeader"></tr>
                         </thead>
                         <tbody id="scheduleBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ADMIN: FOR APPROVAL SCHEDULE PAGE ===== -->
+    <div class="page" id="forApprovalPage">
+        <div class="main-container">
+            <div class="left-panel">
+                <div class="card">
+                    <h2>Hello, Admin!</h2>
+                    <p>Live view of staff submissions</p>
+                    <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromForApproval()">← BACK</button>
+                </div>
+            </div>
+            <div class="center-panel">
+                <div class="schedule-section for-approval-section">
+                    <h2>🟡 For Approval Schedule</h2>
+                    <div class="schedule-info">8/9 - 9/19 (LIVE - staff submitting)</div>
+
+                    <table class="schedule-table" id="forApprovalSchedule">
+                        <thead>
+                            <tr id="forApprovalHeader"></tr>
+                        </thead>
+                        <tbody id="forApprovalBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -952,13 +966,8 @@
                 document.getElementById('adminInfoCard').classList.remove('hidden');
                 document.getElementById('userInfoCard').classList.add('hidden');
 
-                const forApproval = document.getElementById('forApprovalSection');
-                if (appState.proposeShiftOpen) {
-                    generateForApprovalSchedule();
-                    forApproval.classList.remove('hidden');
-                } else {
-                    forApproval.classList.add('hidden');
-                }
+                document.getElementById('forApprovalBtn').disabled = !appState.proposeShiftOpen;
+                document.getElementById('forApprovalNotice').classList.toggle('hidden', !appState.proposeShiftOpen);
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
@@ -1033,6 +1042,23 @@
         // BACK TO HOME (FROM ADMIN STAFF VIEW)
         function backToHomeFromAdminStaff() {
             document.getElementById('adminStaffPage').classList.remove('active');
+            document.getElementById('homePage').classList.add('active');
+        }
+
+        // GO TO ADMIN: FOR APPROVAL SCHEDULE
+        function goToForApproval() {
+            if (!appState.proposeShiftOpen) {
+                alert('Not open yet. Staff submissions have not started.');
+                return;
+            }
+            document.getElementById('homePage').classList.remove('active');
+            document.getElementById('forApprovalPage').classList.add('active');
+            generateForApprovalSchedule();
+        }
+
+        // BACK TO HOME (FROM FOR APPROVAL SCHEDULE)
+        function backToHomeFromForApproval() {
+            document.getElementById('forApprovalPage').classList.remove('active');
             document.getElementById('homePage').classList.add('active');
         }
 
@@ -1124,7 +1150,9 @@
             document.getElementById('deptDisplay').textContent = '';
             resetRoleSelection();
             document.getElementById('centerPanel').classList.add('hidden');
-            document.getElementById('forApprovalSection').classList.add('hidden');
+            document.getElementById('forApprovalPage').classList.remove('active');
+            document.getElementById('adminStaffPage').classList.remove('active');
+            document.getElementById('homePage').classList.add('active');
             document.getElementById('mainContainer').classList.add('welcome-only');
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('staffLoginBtn').disabled = true;
