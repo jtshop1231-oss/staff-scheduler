@@ -394,6 +394,13 @@
             font-size: 11px;
         }
 
+        .empty-dash {
+            color: #e53935;
+            font-weight: 900;
+            font-size: 22px;
+            letter-spacing: 3px;
+        }
+
         /* PREFERENCE PAGE */
         .preference-container {
             display: flex;
@@ -532,6 +539,13 @@
             font-size: 12px;
             line-height: 1;
             color: #000000;
+        }
+
+        .day-name-label {
+            font-weight: 800;
+            margin-bottom: 0px;
+            font-size: 12px;
+            line-height: 1;
         }
 
         .pref-select {
@@ -1373,10 +1387,10 @@
                 html += `<td>
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Day:</span> <span class="staff-names">${dayStaff.length ? dayStaff.join(', ') : '—'}</span>
+                        <span class="shift-label">Day:</span> ${dayStaff.length ? `<span class="staff-names">${dayStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Night:</span> <span class="staff-names">${nightStaff.length ? nightStaff.join(', ') : '—'}</span>
+                        <span class="shift-label">Night:</span> ${nightStaff.length ? `<span class="staff-names">${nightStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
                     </div>
                 </td>`;
 
@@ -1437,7 +1451,7 @@
                 const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
                 html += `<div class="preference-cell" data-key="${dateKey}">
-                    <div class="date-label-small">${dayName}</div>
+                    <div class="day-name-label">${dayName}</div>
                     <div class="date-label-small">${dateStr}</div>
                     <select class="pref-select" id="select-${dateKey}" onchange="handlePrefChange('${dateKey}', this.value)">
                         <option value="">-- Select --</option>
@@ -1483,7 +1497,7 @@
                 const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
                 html += `<div class="preference-cell" data-key="${dateKey}">
-                    <div class="date-label-small">${dayName}</div>
+                    <div class="day-name-label">${dayName}</div>
                     <div class="date-label-small">${dateStr}</div>
                     <select class="pref-select" id="propose-select-${dateKey}" onchange="handleProposeChange('${dateKey}', this.value)">
                         <option value="">-- Select --</option>
