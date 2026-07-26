@@ -339,15 +339,17 @@
             font-weight: 800;
         }
 
-        .uncovered-list {
-            font-size: 13px;
+        .uncovered-table th {
+            background: #d84315;
+        }
+
+        .uncovered-table td {
+            font-size: 12px;
             font-weight: 700;
             color: #d84315;
-            text-align: center;
-            line-height: 1.6;
             background: #fff5f0;
-            border: 1px solid #ffb300;
-            border-radius: 6px;
+            text-align: left;
+            vertical-align: top;
             padding: 10px;
         }
 
@@ -799,8 +801,13 @@
                     </table>
 
                     <div class="uncovered-summary">
-                        <h3>🚨 Dates With No Staff Assigned (Day &amp; Night)</h3>
-                        <div class="uncovered-list" id="uncoveredDatesList"></div>
+                        <h3>🚨 Dates With No Staff Assigned</h3>
+                        <table class="schedule-table uncovered-table">
+                            <thead>
+                                <tr><th>Day Shift</th><th>Night Shift</th></tr>
+                            </thead>
+                            <tbody id="uncoveredDatesBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1392,7 +1399,8 @@
             let currentDate = new Date(pendingStart);
             let dayIndex = 0;
             const allDates = [];
-            const uncoveredDates = [];
+            const uncoveredDayDates = [];
+            const uncoveredNightDates = [];
 
             for (let i = 0; i < dayOfWeek; i++) {
                 html += '<td></td>';
@@ -1418,9 +1426,8 @@
                     }
                 });
 
-                if (dayStaff.length === 0 && nightStaff.length === 0) {
-                    uncoveredDates.push(dateStr);
-                }
+                if (dayStaff.length === 0) uncoveredDayDates.push(dateStr);
+                if (nightStaff.length === 0) uncoveredNightDates.push(dateStr);
 
                 html += `<td>
                     <div class="date-cell">${dateStr}</div>
@@ -1446,7 +1453,7 @@
             body.innerHTML = html;
 
             generateStaffStatusList(staffInUnit, unit, allDates);
-            generateUncoveredDatesSummary(uncoveredDates);
+            generateUncoveredDatesSummary(uncoveredDayDates, uncoveredNightDates);
         }
 
         // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC DATES (mock/demo pattern - no real backend tracking yet)
@@ -1480,13 +1487,15 @@
             document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff in this unit</td></tr>';
         }
 
-        // SUMMARIZE DATES WITH NO STAFF ASSIGNED AT ALL (Day and Night both empty)
-        function generateUncoveredDatesSummary(uncoveredDates) {
-            const el = document.getElementById('uncoveredDatesList');
+        // SUMMARIZE DATES WITH NO STAFF ASSIGNED, SEPARATED BY DAY SHIFT AND NIGHT SHIFT
+        function generateUncoveredDatesSummary(uncoveredDayDates, uncoveredNightDates) {
+            const el = document.getElementById('uncoveredDatesBody');
             if (!el) return;
-            el.innerHTML = uncoveredDates.length
-                ? uncoveredDates.join(', ')
-                : 'None — every date has at least one staff assigned';
+
+            const dayText = uncoveredDayDates.length ? uncoveredDayDates.join(', ') : 'None — fully covered';
+            const nightText = uncoveredNightDates.length ? uncoveredNightDates.join(', ') : 'None — fully covered';
+
+            el.innerHTML = `<tr><td>${dayText}</td><td>${nightText}</td></tr>`;
         }
 
         // GENERATE PREFERENCE GRID
