@@ -325,6 +325,32 @@
             font-weight: 700;
         }
 
+        .uncovered-summary {
+            margin-top: 16px;
+            border-top: 2px dashed #ccc;
+            padding-top: 14px;
+        }
+
+        .uncovered-summary h3 {
+            text-align: center;
+            font-size: 15px;
+            color: #d84315;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .uncovered-list {
+            font-size: 13px;
+            font-weight: 700;
+            color: #d84315;
+            text-align: center;
+            line-height: 1.6;
+            background: #fff5f0;
+            border: 1px solid #ffb300;
+            border-radius: 6px;
+            padding: 10px;
+        }
+
         .schedule-info {
             text-align: center;
             font-size: 15px;
@@ -695,7 +721,7 @@
                     <h2 id="userName">Welcome</h2>
                     <p id="userShift"></p>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToPreferences()">📋 REQUEST PREFERENCES</button>
-                    <button class="btn-primary" id="proposeShiftBtn" style="width: 100%; margin-bottom: 8px;" disabled title="Not yet open by Admin" onclick="goToProposeShift()">🗓️ MY PROPOSE SHIFT</button>
+                    <button class="btn-primary" id="proposeShiftBtn" style="width: 100%; margin-bottom: 8px;" disabled title="Not yet open by Admin" onclick="goToProposeShift()">🗓️ SHIFT REQUEST</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
 
@@ -714,7 +740,7 @@
                         </select>
                     </div>
 
-                    <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" id="forApprovalBtn" onclick="goToForApproval()">🟡 FOR APPROVAL SCHEDULE</button>
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" id="forApprovalBtn" onclick="goToForApproval()">🟡 PENDING APPROVAL SCHEDULE</button>
                     <p id="forApprovalNotice" class="hidden" style="font-size: 10px; color: #b8860b; margin-bottom: 8px;">Click above to view live staff submissions</p>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToAdminStaffView()">👥 VIEW STAFF SCHEDULES</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
@@ -750,7 +776,7 @@
             </div>
             <div class="center-panel">
                 <div class="schedule-section for-approval-section">
-                    <h2>🟡 For Approval Schedule</h2>
+                    <h2>🟡 Pending Approval Schedule</h2>
                     <div class="schedule-info">8/9 - 9/19 (LIVE - staff submitting)</div>
 
                     <table class="schedule-table" id="forApprovalSchedule">
@@ -771,6 +797,11 @@
                         </thead>
                         <tbody id="statusBody"></tbody>
                     </table>
+
+                    <div class="uncovered-summary">
+                        <h3>🚨 Dates With No Staff Assigned (Day &amp; Night)</h3>
+                        <div class="uncovered-list" id="uncoveredDatesList"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -833,7 +864,7 @@
             <!-- CENTER PANEL: MY PROPOSE SHIFT -->
             <div class="preference-center">
                 <div class="preference-section">
-                    <h2>My Propose Shift</h2>
+                    <h2>Shift Request</h2>
                     <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
 
                     <!-- CALENDAR HEADER -->
@@ -1360,6 +1391,8 @@
             let dayOfWeek = pendingStart.getDay();
             let currentDate = new Date(pendingStart);
             let dayIndex = 0;
+            const allDates = [];
+            const uncoveredDates = [];
 
             for (let i = 0; i < dayOfWeek; i++) {
                 html += '<td></td>';
@@ -1372,6 +1405,7 @@
                 }
 
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                allDates.push(dateStr);
                 const dayStaff = [];
                 const nightStaff = [];
 
@@ -1383,6 +1417,10 @@
                         else nightStaff.push(name);
                     }
                 });
+
+                if (dayStaff.length === 0 && nightStaff.length === 0) {
+                    uncoveredDates.push(dateStr);
+                }
 
                 html += `<td>
                     <div class="date-cell">${dateStr}</div>
@@ -1407,14 +1445,15 @@
             html += '</tr>';
             body.innerHTML = html;
 
-            generateStaffStatusList(staffInUnit, unit);
+            generateStaffStatusList(staffInUnit, unit, allDates);
+            generateUncoveredDatesSummary(uncoveredDates);
         }
 
-        // LIST PER-STAFF SUBMISSION STATUS (mock/demo pattern - no real backend tracking yet)
-        function generateStaffStatusList(staffInUnit, unit) {
+        // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC DATES (mock/demo pattern - no real backend tracking yet)
+        function generateStaffStatusList(staffInUnit, unit, allDates) {
             document.getElementById('statusUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
 
-            const totalDays = Math.round((pendingEnd - pendingStart) / (1000 * 60 * 60 * 24)) + 1;
+            const totalDays = allDates.length;
             let html = '';
 
             staffInUnit.forEach((name) => {
@@ -1423,12 +1462,14 @@
 
                 // DEMO PATTERN ONLY: cycles through sample statuses until real submission tracking exists
                 const pattern = staffIndex % 4;
-                if (pattern === 0) {
-                    statusHTML = `<span class="status-ok">✅ Complete — all ${totalDays} days submitted</span>`;
-                } else if (pattern === 1) {
-                    statusHTML = `<span class="status-warn">⚠️ Incomplete — missing 3 of ${totalDays} days</span>`;
+                if (pattern === 1) {
+                    // Pick 3 mock "missing" dates deterministically based on staffIndex
+                    const missingDates = allDates.filter((d, i) => (i + staffIndex) % 14 === 0).slice(0, 3);
+                    statusHTML = `<span class="status-warn">⚠️ Incomplete — missing ${missingDates.length} of ${totalDays} days (${missingDates.join(', ')})</span>`;
                 } else if (pattern === 2) {
-                    statusHTML = `<span class="status-warn">❌ Conflict — marked both ON and OFF on the same date</span>`;
+                    // Pick 1 mock "conflict" date deterministically based on staffIndex
+                    const conflictDate = allDates[(staffIndex * 5) % totalDays];
+                    statusHTML = `<span class="status-warn">❌ Conflict — marked both ON and OFF on ${conflictDate}</span>`;
                 } else {
                     statusHTML = `<span class="status-ok">✅ Complete — all ${totalDays} days submitted</span>`;
                 }
@@ -1437,6 +1478,15 @@
             });
 
             document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff in this unit</td></tr>';
+        }
+
+        // SUMMARIZE DATES WITH NO STAFF ASSIGNED AT ALL (Day and Night both empty)
+        function generateUncoveredDatesSummary(uncoveredDates) {
+            const el = document.getElementById('uncoveredDatesList');
+            if (!el) return;
+            el.innerHTML = uncoveredDates.length
+                ? uncoveredDates.join(', ')
+                : 'None — every date has at least one staff assigned';
         }
 
         // GENERATE PREFERENCE GRID
