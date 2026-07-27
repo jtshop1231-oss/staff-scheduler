@@ -942,7 +942,7 @@
                     <h2>✏️ Edit Schedule — <span id="editDateLabel"></span></h2>
 
                     <div class="edit-shift-block">
-                        <h3>📅 Day Shift</h3>
+                        <h3>☀️ Day Shift</h3>
                         <div class="edit-staff-list" id="editDayList"></div>
                         <div class="edit-add-row">
                             <select id="editDayAddSelect"></select>
@@ -1295,7 +1295,7 @@
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
                 document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
-                document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+                document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
                 document.getElementById('proposeShiftBtn').disabled = !appState.proposeShiftOpen;
             }
 
@@ -1321,7 +1321,7 @@
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('preferencePage').classList.add('active');
             document.getElementById('prefUserName').textContent = `Hello, ${appState.user.name}!`;
-            document.getElementById('prefUserShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+            document.getElementById('prefUserShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
             
             const title = appState.user.shift === 'day' ? 'Day Shift Preferences' : 'Night Shift Preferences';
             document.getElementById('preferenceTitle').textContent = title;
@@ -1336,7 +1336,7 @@
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('proposeShiftPage').classList.add('active');
             document.getElementById('proposeUserName').textContent = `Hello, ${appState.user.name}!`;
-            document.getElementById('proposeUserShift').textContent = appState.user.shift === 'day' ? '📅 Day Shift' : '🌙 Night Shift';
+            document.getElementById('proposeUserShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
         }
 
         // BACK TO HOME (FROM PROPOSE SHIFT PAGE)
@@ -1634,11 +1634,11 @@
             const nightAvailable = appState.allStaff.filter(name => !slot.night.includes(name));
 
             dayAddSelect.innerHTML = dayAvailable.length
-                ? dayAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
+                ? '<option value="" selected disabled>Select a Staff</option>' + dayAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
                 : '<option value="">No staff available</option>';
 
             nightAddSelect.innerHTML = nightAvailable.length
-                ? nightAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
+                ? '<option value="" selected disabled>Select a Staff</option>' + nightAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
                 : '<option value="">No staff available</option>';
         }
 
