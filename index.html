@@ -331,6 +331,85 @@
             font-weight: 700;
         }
 
+        .edit-card {
+            max-width: 480px;
+            width: 90%;
+            height: auto !important;
+            max-height: none !important;
+            margin: 0 auto;
+            overflow: visible !important;
+        }
+
+        .edit-card h2 {
+            color: #b8860b;
+        }
+
+        .edit-shift-block {
+            margin-bottom: 18px;
+        }
+
+        .edit-shift-block h3 {
+            font-size: 15px;
+            color: #2c5f7f;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .edit-staff-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            min-height: 30px;
+        }
+
+        .edit-staff-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 20px;
+        }
+
+        .edit-staff-chip button {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: #fff;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .edit-add-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .edit-add-row select {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #d4e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            color: #2c5f7f;
+        }
+
+        .edit-add-btn {
+            padding: 8px 14px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
         .status-warn {
             color: #d84315;
             font-weight: 700;
@@ -439,6 +518,16 @@
             height: auto;
             font-size: 11px;
             font-weight: 600;
+        }
+
+        .schedule-table.admin-editable td {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .schedule-table.admin-editable td:hover {
+            background: #fffbe6;
+            box-shadow: inset 0 0 0 2px #ffb300;
         }
 
         .date-cell {
@@ -796,7 +885,7 @@
 
             <!-- CENTER PANEL: APPROVED SCHEDULE -->
             <div class="center-panel hidden" id="centerPanel">
-                <div class="schedule-section">
+                <div class="schedule-section" id="approvedScheduleBox">
                     <h2>✅ Approved Schedule</h2>
                     <div class="schedule-info">6/28 - 8/8 (LOCKED)</div>
 
@@ -806,6 +895,34 @@
                         </thead>
                         <tbody id="scheduleBody"></tbody>
                     </table>
+                </div>
+
+                <!-- EDIT CARD: shown when Admin clicks a date slot -->
+                <div class="schedule-section edit-card hidden" id="approvedEditCard">
+                    <h2>✏️ Edit Schedule — <span id="editDateLabel"></span></h2>
+
+                    <div class="edit-shift-block">
+                        <h3>📅 Day Shift</h3>
+                        <div class="edit-staff-list" id="editDayList"></div>
+                        <div class="edit-add-row">
+                            <select id="editDayAddSelect"></select>
+                            <button class="btn-primary edit-add-btn" onclick="addStaffToSlot('day')">+ Add</button>
+                        </div>
+                    </div>
+
+                    <div class="edit-shift-block">
+                        <h3>🌙 Night Shift</h3>
+                        <div class="edit-staff-list" id="editNightList"></div>
+                        <div class="edit-add-row">
+                            <select id="editNightAddSelect"></select>
+                            <button class="btn-primary edit-add-btn" onclick="addStaffToSlot('night')">+ Add</button>
+                        </div>
+                    </div>
+
+                    <div class="preference-buttons" style="margin-top: 16px;">
+                        <button class="btn-secondary" onclick="cancelApprovedEdit()">Cancel</button>
+                        <button class="btn-primary" onclick="submitApprovedEdit()">Submit</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1013,7 +1130,8 @@
             approvedSchedule: {},
             savedTextTimeout: null,
             proposeShiftOpen: true, // TEMPORARY: set to true for testing. Will be controlled by Admin later.
-            selectedAdminUnit: 'All'
+            selectedAdminUnit: 'All',
+            editingSlot: null
         };
 
         // DATES
@@ -1144,6 +1262,8 @@
             const dept = document.getElementById('deptDisplay');
             dept.textContent = appState.user.role === 'admin' ? 'All Units' : appState.user.unit;
             dept.classList.remove('hidden');
+
+            document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
 
             document.getElementById('centerPanel').classList.remove('hidden');
             document.getElementById('mainContainer').classList.remove('welcome-only');
@@ -1310,6 +1430,9 @@
             appState.selectedShift = null;
             appState.preferences = {};
             appState.proposedShift = {};
+            appState.editingSlot = null;
+            document.getElementById('approvedEditCard').classList.add('hidden');
+            document.getElementById('approvedScheduleBox').classList.remove('hidden');
             
             document.getElementById('loginCard').classList.remove('hidden');
             document.getElementById('userInfoCard').classList.add('hidden');
@@ -1401,7 +1524,7 @@
                 const assignment = appState.approvedSchedule[dateKey];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                html += `<td>
+                html += `<td onclick="openApprovedEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
                         <span class="shift-label">Day:</span> <span class="staff-names">${assignment.day.join(', ')}</span>
@@ -1423,6 +1546,95 @@
             html += '</tr>';
             body.innerHTML = html;
         }
+
+        // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED
+        function openApprovedEditCard(dateKey, dateStr) {
+            if (!appState.user || appState.user.role !== 'admin') return;
+
+            const assignment = appState.approvedSchedule[dateKey];
+            if (!assignment) return;
+
+            appState.editingSlot = {
+                dateKey,
+                day: [...assignment.day],
+                night: [...assignment.night]
+            };
+
+            document.getElementById('editDateLabel').textContent = dateStr;
+
+            renderEditLists();
+
+            document.getElementById('approvedScheduleBox').classList.add('hidden');
+            document.getElementById('approvedEditCard').classList.remove('hidden');
+        }
+
+        // RENDER THE STAFF CHIPS + ADD DROPDOWNS INSIDE THE EDIT CARD
+        function renderEditLists() {
+            const slot = appState.editingSlot;
+            if (!slot) return;
+
+            const dayList = document.getElementById('editDayList');
+            const nightList = document.getElementById('editNightList');
+            const dayAddSelect = document.getElementById('editDayAddSelect');
+            const nightAddSelect = document.getElementById('editNightAddSelect');
+
+            dayList.innerHTML = slot.day.length
+                ? slot.day.map(name => `<div class="edit-staff-chip">${name}<button onclick="removeStaffFromSlot('day', '${name}')">✕</button></div>`).join('')
+                : '<span style="font-size: 12px; color: #999;">No one assigned</span>';
+
+            nightList.innerHTML = slot.night.length
+                ? slot.night.map(name => `<div class="edit-staff-chip">${name}<button onclick="removeStaffFromSlot('night', '${name}')">✕</button></div>`).join('')
+                : '<span style="font-size: 12px; color: #999;">No one assigned</span>';
+
+            const dayAvailable = appState.allStaff.filter(name => !slot.day.includes(name));
+            const nightAvailable = appState.allStaff.filter(name => !slot.night.includes(name));
+
+            dayAddSelect.innerHTML = dayAvailable.length
+                ? dayAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
+                : '<option value="">No staff available</option>';
+
+            nightAddSelect.innerHTML = nightAvailable.length
+                ? nightAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
+                : '<option value="">No staff available</option>';
+        }
+
+        // ADD STAFF TO DAY OR NIGHT SHIFT WITHIN THE EDIT CARD
+        function addStaffToSlot(shiftType) {
+            const select = shiftType === 'day' ? document.getElementById('editDayAddSelect') : document.getElementById('editNightAddSelect');
+            const name = select.value;
+            if (!name) return;
+
+            appState.editingSlot[shiftType].push(name);
+            renderEditLists();
+        }
+
+        // REMOVE STAFF FROM DAY OR NIGHT SHIFT WITHIN THE EDIT CARD
+        function removeStaffFromSlot(shiftType, name) {
+            appState.editingSlot[shiftType] = appState.editingSlot[shiftType].filter(n => n !== name);
+            renderEditLists();
+        }
+
+        // CANCEL EDIT - DISCARD CHANGES
+        function cancelApprovedEdit() {
+            appState.editingSlot = null;
+            document.getElementById('approvedEditCard').classList.add('hidden');
+            document.getElementById('approvedScheduleBox').classList.remove('hidden');
+        }
+
+        // SUBMIT EDIT - SAVE CHANGES AND RETURN TO CALENDAR
+        function submitApprovedEdit() {
+            const slot = appState.editingSlot;
+            if (!slot) return;
+
+            appState.approvedSchedule[slot.dateKey] = { day: [...slot.day], night: [...slot.night] };
+            appState.editingSlot = null;
+
+            document.getElementById('approvedEditCard').classList.add('hidden');
+            document.getElementById('approvedScheduleBox').classList.remove('hidden');
+
+            renderApprovedSchedule();
+        }
+
 
         // GENERATE FOR APPROVAL SCHEDULE (mock/demo data - shows staff who marked "ON" in My Propose Shift)
         function generateForApprovalSchedule() {
