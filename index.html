@@ -331,13 +331,50 @@
             font-weight: 700;
         }
 
+        .edit-overlay-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 27, 40, 0.55);
+            z-index: 998;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s;
+        }
+
+        .edit-overlay-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .edit-overlay-backdrop.no-anim {
+            transition: none !important;
+        }
+
         .edit-card {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.6);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+            transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.3s ease;
             max-width: 480px;
             width: 90%;
             height: auto !important;
-            max-height: none !important;
-            margin: 0 auto;
-            overflow: visible !important;
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+            margin: 0;
+        }
+
+        .edit-card.card-visible {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .edit-card.no-anim {
+            transition: none !important;
         }
 
         .edit-card h2 {
@@ -897,8 +934,11 @@
                     </table>
                 </div>
 
+                <!-- BACKDROP: dims the calendar behind the floating edit card -->
+                <div class="edit-overlay-backdrop" id="editOverlayBackdrop" onclick="cancelApprovedEdit()"></div>
+
                 <!-- EDIT CARD: shown when Admin clicks a date slot -->
-                <div class="schedule-section edit-card hidden" id="approvedEditCard">
+                <div class="schedule-section edit-card" id="approvedEditCard">
                     <h2>✏️ Edit Schedule — <span id="editDateLabel"></span></h2>
 
                     <div class="edit-shift-block">
@@ -1431,8 +1471,8 @@
             appState.preferences = {};
             appState.proposedShift = {};
             appState.editingSlot = null;
-            document.getElementById('approvedEditCard').classList.add('hidden');
-            document.getElementById('approvedScheduleBox').classList.remove('hidden');
+            document.getElementById('approvedEditCard').classList.remove('card-visible');
+            document.getElementById('editOverlayBackdrop').classList.remove('active');
             
             document.getElementById('loginCard').classList.remove('hidden');
             document.getElementById('userInfoCard').classList.add('hidden');
@@ -1564,8 +1604,12 @@
 
             renderEditLists();
 
-            document.getElementById('approvedScheduleBox').classList.add('hidden');
-            document.getElementById('approvedEditCard').classList.remove('hidden');
+            const card = document.getElementById('approvedEditCard');
+            const backdrop = document.getElementById('editOverlayBackdrop');
+            card.classList.remove('no-anim');
+            backdrop.classList.remove('no-anim');
+            backdrop.classList.add('active');
+            card.classList.add('card-visible');
         }
 
         // RENDER THE STAFF CHIPS + ADD DROPDOWNS INSIDE THE EDIT CARD
@@ -1614,14 +1658,25 @@
             renderEditLists();
         }
 
-        // CANCEL EDIT - DISCARD CHANGES
+        // CANCEL EDIT - DISCARD CHANGES (instant, no animation - nothing was changed)
         function cancelApprovedEdit() {
             appState.editingSlot = null;
-            document.getElementById('approvedEditCard').classList.add('hidden');
-            document.getElementById('approvedScheduleBox').classList.remove('hidden');
+            const card = document.getElementById('approvedEditCard');
+            const backdrop = document.getElementById('editOverlayBackdrop');
+
+            card.classList.add('no-anim');
+            backdrop.classList.add('no-anim');
+            card.classList.remove('card-visible');
+            backdrop.classList.remove('active');
+
+            // re-enable animation for the next time the card opens
+            requestAnimationFrame(() => {
+                card.classList.remove('no-anim');
+                backdrop.classList.remove('no-anim');
+            });
         }
 
-        // SUBMIT EDIT - SAVE CHANGES AND RETURN TO CALENDAR
+        // SUBMIT EDIT - SAVE CHANGES, THEN FLY BACK TO REVEAL THE UPDATED CALENDAR
         function submitApprovedEdit() {
             const slot = appState.editingSlot;
             if (!slot) return;
@@ -1629,10 +1684,10 @@
             appState.approvedSchedule[slot.dateKey] = { day: [...slot.day], night: [...slot.night] };
             appState.editingSlot = null;
 
-            document.getElementById('approvedEditCard').classList.add('hidden');
-            document.getElementById('approvedScheduleBox').classList.remove('hidden');
-
             renderApprovedSchedule();
+
+            document.getElementById('approvedEditCard').classList.remove('card-visible');
+            document.getElementById('editOverlayBackdrop').classList.remove('active');
         }
 
 
