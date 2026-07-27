@@ -339,8 +339,27 @@
             font-weight: 800;
         }
 
+        .uncovered-month-block {
+            margin-bottom: 16px;
+        }
+
+        .uncovered-month-block h4 {
+            font-size: 14px;
+            color: #d84315;
+            font-weight: 800;
+            margin-bottom: 6px;
+            text-align: left;
+        }
+
+        .uncovered-table {
+            border-collapse: collapse;
+        }
+
         .uncovered-table th {
             background: #d84315;
+            border: 1px solid #b8321a;
+            padding: 6px;
+            font-size: 12px;
         }
 
         .uncovered-table td {
@@ -350,6 +369,21 @@
             background: #fff5f0;
             text-align: left;
             vertical-align: top;
+            padding: 8px 10px;
+            border: 1px solid #ffb300;
+        }
+
+        .uncovered-table td:first-child {
+            font-weight: 800;
+            white-space: nowrap;
+            width: 25%;
+        }
+
+        .uncovered-none {
+            font-size: 13px;
+            font-weight: 700;
+            color: #00a8a8;
+            text-align: center;
             padding: 10px;
         }
 
@@ -802,12 +836,7 @@
 
                     <div class="uncovered-summary">
                         <h3>🚨 Dates With No Staff Assigned</h3>
-                        <table class="schedule-table uncovered-table">
-                            <thead>
-                                <tr><th>Day Shift</th><th>Night Shift</th></tr>
-                            </thead>
-                            <tbody id="uncoveredDatesBody"></tbody>
-                        </table>
+                        <div id="uncoveredMonthsContainer"></div>
                     </div>
                 </div>
             </div>
@@ -1399,8 +1428,7 @@
             let currentDate = new Date(pendingStart);
             let dayIndex = 0;
             const allDates = [];
-            const uncoveredDayDates = [];
-            const uncoveredNightDates = [];
+            const uncoveredByMonth = {};
 
             for (let i = 0; i < dayOfWeek; i++) {
                 html += '<td></td>';
@@ -1413,6 +1441,7 @@
                 }
 
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'long' });
                 allDates.push(dateStr);
                 const dayStaff = [];
                 const nightStaff = [];
@@ -1426,8 +1455,13 @@
                     }
                 });
 
-                if (dayStaff.length === 0) uncoveredDayDates.push(dateStr);
-                if (nightStaff.length === 0) uncoveredNightDates.push(dateStr);
+                const dayUncovered = dayStaff.length === 0;
+                const nightUncovered = nightStaff.length === 0;
+
+                if (dayUncovered || nightUncovered) {
+                    if (!uncoveredByMonth[monthLabel]) uncoveredByMonth[monthLabel] = [];
+                    uncoveredByMonth[monthLabel].push({ dateStr, dayUncovered, nightUncovered });
+                }
 
                 html += `<td>
                     <div class="date-cell">${dateStr}</div>
@@ -1453,7 +1487,7 @@
             body.innerHTML = html;
 
             generateStaffStatusList(staffInUnit, unit, allDates);
-            generateUncoveredDatesSummary(uncoveredDayDates, uncoveredNightDates);
+            generateUncoveredDatesSummary(uncoveredByMonth);
         }
 
         // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC DATES (mock/demo pattern - no real backend tracking yet)
@@ -1487,15 +1521,40 @@
             document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff in this unit</td></tr>';
         }
 
-        // SUMMARIZE DATES WITH NO STAFF ASSIGNED, SEPARATED BY DAY SHIFT AND NIGHT SHIFT
-        function generateUncoveredDatesSummary(uncoveredDayDates, uncoveredNightDates) {
-            const el = document.getElementById('uncoveredDatesBody');
-            if (!el) return;
+        // SUMMARIZE DATES WITH NO STAFF ASSIGNED, GROUPED BY MONTH, PORTRAIT (ROW-PER-DATE) FORMAT
+        function generateUncoveredDatesSummary(uncoveredByMonth) {
+            const container = document.getElementById('uncoveredMonthsContainer');
+            if (!container) return;
 
-            const dayText = uncoveredDayDates.length ? uncoveredDayDates.join(', ') : 'None — fully covered';
-            const nightText = uncoveredNightDates.length ? uncoveredNightDates.join(', ') : 'None — fully covered';
+            const months = Object.keys(uncoveredByMonth);
 
-            el.innerHTML = `<tr><td>${dayText}</td><td>${nightText}</td></tr>`;
+            if (months.length === 0) {
+                container.innerHTML = '<div class="uncovered-none">None — every date has at least one staff assigned</div>';
+                return;
+            }
+
+            let html = '';
+            months.forEach(month => {
+                html += `<div class="uncovered-month-block">
+                    <h4>${month}</h4>
+                    <table class="schedule-table uncovered-table">
+                        <thead>
+                            <tr><th>Date</th><th>Day Shift</th><th>Night Shift</th></tr>
+                        </thead>
+                        <tbody>`;
+
+                uncoveredByMonth[month].forEach(record => {
+                    const dayCell = record.dayUncovered ? '❌ No staff' : '✅';
+                    const nightCell = record.nightUncovered ? '❌ No staff' : '✅';
+                    html += `<tr><td>${record.dateStr}</td><td>${dayCell}</td><td>${nightCell}</td></tr>`;
+                });
+
+                html += `</tbody>
+                    </table>
+                </div>`;
+            });
+
+            container.innerHTML = html;
         }
 
         // GENERATE PREFERENCE GRID
