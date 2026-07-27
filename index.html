@@ -1166,7 +1166,14 @@
             selectedShift: null,
             preferences: {},
             proposedShift: {},
-            allStaff: ['Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack', 'Kevin', 'Liza'],
+            allStaff: [
+                // IMU (10)
+                'Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack',
+                // ICU (18)
+                'Kevin', 'Liza', 'Maya', 'Noah', 'Olivia', 'Paolo', 'Queenie', 'Ramon', 'Sofia', 'Tomas', 'Uma', 'Victor', 'Wendy', 'Xander', 'Yara', 'Zach', 'Amelia', 'Bruno',
+                // Telemetry (8)
+                'Carmen', 'Diego', 'Elise', 'Felix', 'Grace', 'Hector', 'Isla', 'Julian'
+            ],
             approvedSchedule: {},
             savedTextTimeout: null,
             proposeShiftOpen: true, // TEMPORARY: set to true for testing. Will be controlled by Admin later.
@@ -1305,6 +1312,8 @@
 
             document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
 
+            generateApprovedSchedule();
+
             document.getElementById('centerPanel').classList.remove('hidden');
             document.getElementById('mainContainer').classList.remove('welcome-only');
         }
@@ -1314,6 +1323,7 @@
             const unit = document.getElementById('adminManageUnit').value;
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
+            generateApprovedSchedule();
         }
 
         // GO TO PREFERENCES
@@ -1348,9 +1358,10 @@
         // MOCK STAFF-TO-UNIT MAPPING (for demo purposes only - no backend yet)
         const staffUnitMap = {};
         (function assignMockUnits() {
-            const units = ['IMU', 'ICU', 'Telemetry'];
             appState.allStaff.forEach((name, i) => {
-                staffUnitMap[name] = units[i % units.length];
+                if (i < 10) staffUnitMap[name] = 'IMU';
+                else if (i < 28) staffUnitMap[name] = 'ICU';
+                else staffUnitMap[name] = 'Telemetry';
             });
         })();
 
@@ -1503,36 +1514,48 @@
         }
 
         // GENERATE APPROVED SCHEDULE
+        // DETERMINE WHICH UNIT'S SCHEDULE SHOULD BE SHOWN RIGHT NOW
+        function getActiveApprovedUnit() {
+            if (!appState.user) return null;
+            if (appState.user.role === 'admin') {
+                return appState.selectedAdminUnit && appState.selectedAdminUnit !== 'All' ? appState.selectedAdminUnit : null;
+            }
+            return appState.user.unit;
+        }
+
         function generateApprovedSchedule() {
             const schedule = {};
             let currentDate = new Date(approvedStart);
-            const staff = appState.allStaff;
-            let staffIndex = 0;
 
+            const unit = getActiveApprovedUnit();
+            const staff = unit ? appState.allStaff.filter(name => staffUnitMap[name] === unit) : appState.allStaff;
             const totalStaff = staff.length;
+
+            // Show roughly half the unit's roster on Day, half on Night (rotates daily) -
+            // this means bigger units naturally show more names per cell, and the box grows to fit.
+            const dayCount = Math.max(1, Math.ceil(totalStaff / 2));
+            const nightCount = Math.max(1, totalStaff - dayCount) || dayCount;
+
+            let staffIndex = 0;
 
             while (currentDate <= approvedEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
-                
-                const dayStaff = [
-                    staff[staffIndex % totalStaff],
-                    staff[(staffIndex + 1) % totalStaff],
-                    staff[(staffIndex + 2) % totalStaff],
-                    staff[(staffIndex + 3) % totalStaff]
-                ];
-                const nightStaff = [
-                    staff[(staffIndex + 4) % totalStaff],
-                    staff[(staffIndex + 5) % totalStaff],
-                    staff[(staffIndex + 6) % totalStaff],
-                    staff[(staffIndex + 7) % totalStaff]
-                ];
+
+                const dayStaff = [];
+                for (let i = 0; i < dayCount; i++) {
+                    dayStaff.push(staff[(staffIndex + i) % totalStaff]);
+                }
+                const nightStaff = [];
+                for (let i = 0; i < nightCount; i++) {
+                    nightStaff.push(staff[(staffIndex + dayCount + i) % totalStaff]);
+                }
 
                 schedule[dateKey] = {
                     day: dayStaff,
                     night: nightStaff
                 };
 
-                staffIndex += 4;
+                staffIndex += 2;
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
