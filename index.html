@@ -88,6 +88,47 @@
             margin-bottom: 20px;
         }
 
+        #homePage.page.active {
+            overflow-y: auto;
+            align-items: flex-start;
+        }
+
+        #mainContainer {
+            height: auto;
+            min-height: 100%;
+            align-items: flex-start;
+        }
+
+        #centerPanel {
+            overflow: visible;
+            height: auto;
+            padding: 24px 0 40px;
+        }
+
+        #approvedScheduleBox {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            width: 92%;
+            margin: 0 auto;
+        }
+
+        #approvedSchedule td {
+            padding: 14px 6px;
+            vertical-align: top;
+            min-height: 150px;
+        }
+
+        #approvedSchedule .date-cell {
+            font-size: 12px;
+        }
+
+        #approvedSchedule .shift-info,
+        #approvedSchedule .shift-label,
+        #approvedSchedule .staff-names {
+            font-size: 12px;
+        }
+
         /* HOMEPAGE */
         .main-container {
             display: flex;
