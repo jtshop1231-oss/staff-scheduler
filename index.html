@@ -962,6 +962,7 @@
 
                     <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" id="forApprovalBtn" onclick="goToForApproval()">🟡 PENDING APPROVAL SCHEDULE</button>
                     <p id="forApprovalNotice" class="hidden" style="font-size: 10px; color: #b8860b; margin-bottom: 8px;">Click above to view live staff submissions</p>
+                    <button class="btn-secondary" style="width: 100%; margin-bottom: 8px;" id="shiftRequestToggleBtn" onclick="toggleShiftRequestWindow()">🔓 Shift Request: OPEN</button>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToAdminStaffView()">👥 VIEW STAFF SCHEDULES</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
@@ -1249,7 +1250,7 @@
             // operation, rather than relying on Admin to remember to do
             // it as a separate manual step.
             // ============================================================
-            proposeShiftOpen: true, // TEMPORARY: set to true for testing. Will be controlled by Admin later.
+            proposeShiftOpen: true, // Default state on load. Now controllable by Admin via the "Shift Request" toggle button.
             selectedAdminUnit: 'All',
             editingSlot: null
         };
@@ -1368,6 +1369,7 @@
 
                 document.getElementById('forApprovalBtn').disabled = !appState.proposeShiftOpen;
                 document.getElementById('forApprovalNotice').classList.toggle('hidden', !appState.proposeShiftOpen);
+                updateShiftRequestToggleUI();
 
                 appState.selectedAdminUnit = 'All';
                 document.getElementById('adminManageUnit').value = 'All';
@@ -1397,6 +1399,27 @@
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
             generateApprovedSchedule();
+        }
+
+        // ADMIN: TOGGLE SHIFT REQUEST WINDOW OPEN/CLOSED
+        // Real backend note: this should also auto-flip to CLOSED as part of
+        // "Admin posts/finalizes the Approved Schedule" — not rely on Admin
+        // remembering to click this manually every cycle.
+        function toggleShiftRequestWindow() {
+            appState.proposeShiftOpen = !appState.proposeShiftOpen;
+            updateShiftRequestToggleUI();
+        }
+
+        // SYNC TOGGLE BUTTON LABEL + DEPENDENT UI TO CURRENT proposeShiftOpen STATE
+        function updateShiftRequestToggleUI() {
+            const btn = document.getElementById('shiftRequestToggleBtn');
+            if (appState.proposeShiftOpen) {
+                btn.textContent = '🔓 Shift Request: OPEN';
+            } else {
+                btn.textContent = '🔒 Shift Request: CLOSED';
+            }
+            document.getElementById('forApprovalBtn').disabled = !appState.proposeShiftOpen;
+            document.getElementById('forApprovalNotice').classList.toggle('hidden', !appState.proposeShiftOpen);
         }
 
         // GO TO PREFERENCES
