@@ -1928,10 +1928,51 @@
         }
 
         // HANDLE PREFERENCE DROPDOWN CHANGE
+        // ============================================================
+        // BUSINESS RULE (FOR RECORD / FUTURE AI SCHEDULING ENGINE):
+        // Staff may request/propose a MAXIMUM of 3 "ON" days per calendar
+        // week (Sunday-Saturday) in both "Request Preferences" (Request ON)
+        // and "Shift Request" (ON Shift). This is enforced client-side here
+        // by blocking a 4th "ON" selection within the same week.
+        //
+        // When the real backend/AI scheduling engine is integrated, it
+        // should independently re-validate this same rule against submitted
+        // data (never trust client-side validation alone), and any staff
+        // record that violates it (e.g. via a bypass or a data import) should
+        // be flagged for Admin review rather than silently accepted or
+        // silently auto-corrected.
+        // ============================================================
+
+        // GET THE 7 DATE KEYS (SUN-SAT) OF THE WEEK THAT dateKey BELONGS TO
+        function getWeekDateKeys(dateKey) {
+            const target = new Date(dateKey);
+            const diffDays = Math.round((target - pendingStart) / (1000 * 60 * 60 * 24));
+            const weekStart = new Date(pendingStart);
+            weekStart.setDate(weekStart.getDate() + Math.floor(diffDays / 7) * 7);
+
+            const keys = [];
+            for (let i = 0; i < 7; i++) {
+                const dt = new Date(weekStart);
+                dt.setDate(dt.getDate() + i);
+                keys.push(dt.toISOString().split('T')[0]);
+            }
+            return keys;
+        }
+
         function handlePrefChange(dateKey, value) {
             if (!appState.user) {
                 alert('Please login first');
                 return;
+            }
+
+            if (value === 'on') {
+                const weekKeys = getWeekDateKeys(dateKey);
+                const onCount = weekKeys.filter(k => k !== dateKey && appState.preferences[k] === 'on').length;
+                if (onCount >= 3) {
+                    alert('Maximum of 3 "ON" days per week (Sun-Sat) only. Please remove another ON day this week first.');
+                    document.getElementById(`select-${dateKey}`).value = appState.preferences[dateKey] || '';
+                    return;
+                }
             }
 
             const cell = document.querySelector(`.preference-cell[data-key="${dateKey}"]`);
@@ -1978,6 +2019,16 @@
             if (!appState.user) {
                 alert('Please login first');
                 return;
+            }
+
+            if (value === 'on') {
+                const weekKeys = getWeekDateKeys(dateKey);
+                const onCount = weekKeys.filter(k => k !== dateKey && appState.proposedShift[k] === 'on').length;
+                if (onCount >= 3) {
+                    alert('Maximum of 3 "ON Shift" days per week (Sun-Sat) only. Please remove another ON day this week first.');
+                    document.getElementById(`propose-select-${dateKey}`).value = appState.proposedShift[dateKey] || '';
+                    return;
+                }
             }
 
             const cell = document.querySelector(`#proposeShiftPage .preference-cell[data-key="${dateKey}"]`);
