@@ -1225,6 +1225,22 @@
             approvedSchedule: {},
             savedTextTimeout: null,
             // ============================================================
+            // REAL SUBMISSION STORE (replaces mock/demo pattern).
+            // Since there is no backend/database yet, this persists ONLY
+            // for the current browser tab session. Keyed by the staff
+            // name they typed in at login (case-sensitive as typed).
+            // allSubmissions.proposedShift[name] = { dateKey: 'on'|'off'|'available'|'pto' }
+            // allSubmissions.preferences[name]   = { dateKey: 'on'|'off'|'pto' }
+            // staffDirectory[name] = { unit, shift } — captured at login,
+            // used so Admin's Pending Approval / Staff Status views can
+            // filter by unit and know Day vs Night without guessing.
+            // ============================================================
+            allSubmissions: {
+                proposedShift: {},
+                preferences: {}
+            },
+            staffDirectory: {},
+            // ============================================================
             // BUSINESS RULE (FOR RECORD / FUTURE AI SCHEDULING ENGINE):
             // "SHIFT REQUEST" (My Propose Shift) access is time-boxed by
             // Admin: it is OPEN only while Admin has an active scheduling
@@ -1344,6 +1360,16 @@
                 return;
             }
             appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
+
+            // Register/update this staff member in the directory so Admin's
+            // Pending Approval + Staff Status views know their unit/shift.
+            appState.staffDirectory[name] = { unit, shift: appState.selectedShift };
+
+            // Restore their previously submitted data (if any) so re-logging
+            // in continues where they left off, instead of starting blank.
+            appState.proposedShift = { ...(appState.allSubmissions.proposedShift[name] || {}) };
+            appState.preferences = { ...(appState.allSubmissions.preferences[name] || {}) };
+
             showHomepage();
         }
 
@@ -1435,6 +1461,8 @@
             
             const title = appState.user.shift === 'day' ? 'Day Shift Preferences' : 'Night Shift Preferences';
             document.getElementById('preferenceTitle').textContent = title;
+
+            applyRestoredSelections('preferences', 'select-', 'preferenceGrid');
         }
 
         // GO TO MY PROPOSE SHIFT
@@ -1447,6 +1475,8 @@
             document.getElementById('proposeShiftPage').classList.add('active');
             document.getElementById('proposeUserName').textContent = `Hello, ${appState.user.name}!`;
             document.getElementById('proposeUserShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
+
+            applyRestoredSelections('proposedShift', 'propose-select-', 'proposeGrid');
         }
 
         // BACK TO HOME (FROM PROPOSE SHIFT PAGE)
@@ -1821,14 +1851,16 @@
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
 
             const unit = appState.selectedAdminUnit || 'All';
-            const staffInUnit = appState.allStaff.filter(name => unit === 'All' || staffUnitMap[name] === unit);
+            // REAL staff list: everyone who has actually logged in for this
+            // unit (captured in staffDirectory), not the fixed mock roster.
+            const staffInUnit = Object.keys(appState.staffDirectory).filter(
+                name => unit === 'All' || appState.staffDirectory[name].unit === unit
+            );
 
-            const proposeOptions = ['on', 'off', 'available'];
             let html = '<tr>';
             let dayOfWeek = pendingStart.getDay();
             let currentDate = new Date(pendingStart);
-            let dayIndex = 0;
-            const allDates = [];
+            const dateList = []; // { key, str } for every date in the window
             const uncoveredByMonth = {};
 
             for (let i = 0; i < dayOfWeek; i++) {
@@ -1841,17 +1873,17 @@
                     dayOfWeek = 0;
                 }
 
+                const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'long' });
-                allDates.push(dateStr);
+                dateList.push({ key: dateKey, str: dateStr });
                 const dayStaff = [];
                 const nightStaff = [];
 
-                appState.allStaff.forEach((name, staffIndex) => {
-                    if (!staffInUnit.includes(name)) return;
-                    const value = getMockValue(staffIndex + 1, dayIndex, proposeOptions);
-                    if (value === 'on') {
-                        if (staffShiftTypeMap[name] === 'day') dayStaff.push(name);
+                staffInUnit.forEach((name) => {
+                    const submission = appState.allSubmissions.proposedShift[name] || {};
+                    if (submission[dateKey] === 'on') {
+                        if (appState.staffDirectory[name].shift === 'day') dayStaff.push(name);
                         else nightStaff.push(name);
                     }
                 });
@@ -1876,7 +1908,6 @@
 
                 currentDate.setDate(currentDate.getDate() + 1);
                 dayOfWeek++;
-                dayIndex++;
             }
 
             while (dayOfWeek < 7) {
@@ -1887,39 +1918,35 @@
             html += '</tr>';
             body.innerHTML = html;
 
-            generateStaffStatusList(staffInUnit, unit, allDates);
+            generateStaffStatusList(staffInUnit, unit, dateList);
             generateUncoveredDatesSummary(uncoveredByMonth);
         }
 
-        // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC DATES (mock/demo pattern - no real backend tracking yet)
-        function generateStaffStatusList(staffInUnit, unit, allDates) {
+        // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC MISSING DATES (real data)
+        function generateStaffStatusList(staffInUnit, unit, dateList) {
             document.getElementById('statusUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
 
-            const totalDays = allDates.length;
+            const totalDays = dateList.length;
             let html = '';
 
             staffInUnit.forEach((name) => {
-                const staffIndex = appState.allStaff.indexOf(name);
+                const submitted = appState.allSubmissions.proposedShift[name] || {};
+                const missingDates = dateList.filter(d => !submitted[d.key]).map(d => d.str);
                 let statusHTML;
 
-                // DEMO PATTERN ONLY: cycles through sample statuses until real submission tracking exists
-                const pattern = staffIndex % 4;
-                if (pattern === 1) {
-                    // Pick 3 mock "missing" dates deterministically based on staffIndex
-                    const missingDates = allDates.filter((d, i) => (i + staffIndex) % 14 === 0).slice(0, 3);
-                    statusHTML = `<span class="status-warn">⚠️ Incomplete — missing ${missingDates.length} of ${totalDays} days (${missingDates.join(', ')})</span>`;
-                } else if (pattern === 2) {
-                    // Pick 1 mock "conflict" date deterministically based on staffIndex
-                    const conflictDate = allDates[(staffIndex * 5) % totalDays];
-                    statusHTML = `<span class="status-warn">❌ Conflict — marked both ON and OFF on ${conflictDate}</span>`;
-                } else {
+                if (missingDates.length === 0) {
                     statusHTML = `<span class="status-ok">✅ Complete — all ${totalDays} days submitted</span>`;
+                } else if (missingDates.length === totalDays) {
+                    statusHTML = `<span class="status-warn">⚠️ Not yet submitted — 0 of ${totalDays} days</span>`;
+                } else {
+                    const shown = missingDates.slice(0, 5).join(', ') + (missingDates.length > 5 ? `, +${missingDates.length - 5} more` : '');
+                    statusHTML = `<span class="status-warn">⚠️ Incomplete — missing ${missingDates.length} of ${totalDays} days (${shown})</span>`;
                 }
 
                 html += `<tr><td>${name}</td><td>${statusHTML}</td></tr>`;
             });
 
-            document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff in this unit</td></tr>';
+            document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff have submitted a Shift Request yet for this unit.</td></tr>';
         }
 
         // SUMMARIZE DATES WITH NO STAFF ASSIGNED, GROUPED BY MONTH, PORTRAIT (ROW-PER-DATE) FORMAT
@@ -2000,6 +2027,22 @@
         // be flagged for Admin review rather than silently accepted or
         // silently auto-corrected.
         // ============================================================
+
+        // RESTORE A STAFF MEMBER'S PREVIOUSLY SUBMITTED SELECTIONS ONTO THE
+        // GRID VISUALLY (dropdown value + colored cell) WHEN THEY RE-LOGIN.
+        function applyRestoredSelections(sourceKey, selectIdPrefix, gridId) {
+            const data = appState[sourceKey] || {};
+            Object.keys(data).forEach(dateKey => {
+                const value = data[dateKey];
+                const select = document.getElementById(`${selectIdPrefix}${dateKey}`);
+                const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${dateKey}"]`);
+                if (select) select.value = value;
+                if (cell && value) {
+                    cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
+                    cell.classList.add(`pref-${value}`);
+                }
+            });
+        }
 
         // GET THE 7 DATE KEYS (SUN-SAT) OF THE WEEK THAT dateKey BELONGS TO
         function getWeekDateKeys(dateKey) {
@@ -2113,6 +2156,11 @@
                 return;
             }
 
+            // Save into the real submission store, keyed by staff name, so
+            // Admin's Pending Approval Schedule reflects this actual submission.
+            appState.allSubmissions.proposedShift[appState.user.name] = { ...appState.proposedShift };
+            appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
+
             const saved = document.getElementById('proposeSavedText');
             saved.classList.add('visible');
             saved.textContent = '✓ Saved';
@@ -2137,6 +2185,10 @@
                 alert('Please select at least one date!');
                 return;
             }
+
+            // Save into the real submission store, keyed by staff name.
+            appState.allSubmissions.preferences[appState.user.name] = { ...appState.preferences };
+            appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
 
             if (appState.savedTextTimeout) {
                 clearTimeout(appState.savedTextTimeout);
@@ -2165,4 +2217,3 @@
     </script>
 </body>
 </html>
-RT 
