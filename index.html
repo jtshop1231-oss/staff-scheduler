@@ -1414,9 +1414,13 @@
         function updateShiftRequestToggleUI() {
             const btn = document.getElementById('shiftRequestToggleBtn');
             if (appState.proposeShiftOpen) {
-                btn.textContent = '🔓 Shift Request: OPEN';
+                btn.textContent = '🟢 Shift Request: OPEN (tap to close)';
+                btn.classList.add('btn-primary');
+                btn.classList.remove('btn-secondary');
             } else {
-                btn.textContent = '🔒 Shift Request: CLOSED';
+                btn.textContent = '🔴 Shift Request: CLOSED (tap to open)';
+                btn.classList.add('btn-secondary');
+                btn.classList.remove('btn-primary');
             }
             document.getElementById('forApprovalBtn').disabled = !appState.proposeShiftOpen;
             document.getElementById('forApprovalNotice').classList.toggle('hidden', !appState.proposeShiftOpen);
