@@ -168,6 +168,10 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
+        .login-card {
+            border: 0.2px solid #000000;
+        }
+
         .card h2 {
             font-size: 17px;
             color: #0084d4;
@@ -199,7 +203,7 @@
         .role-btn {
             flex: 1;
             padding: 13px;
-            border: 2px solid #000000;
+            border: 0.2px solid #000000;
             border-radius: 6px;
             background: #fff;
             font-size: 12px;
@@ -214,7 +218,7 @@
         .role-btn.active {
             background: linear-gradient(135deg, #00c9c3 0%, #00a8a8 100%);
             color: #fff;
-            border-color: #00a8a8;
+            border-color: #000000;
         }
 
         .role-btn:hover {
@@ -238,7 +242,7 @@
         .form-group input {
             width: 100%;
             padding: 8px;
-            border: 2px solid #d4e8f0;
+            border: 0.2px solid #000000;
             border-radius: 6px;
             font-size: 11px;
             font-family: 'Inter', sans-serif;
@@ -259,7 +263,7 @@
         .shift-btn {
             flex: 1;
             padding: 8px;
-            border: 2px solid #d4e8f0;
+            border: 0.2px solid #000000;
             border-radius: 6px;
             background: #fff;
             font-size: 10px;
@@ -311,7 +315,7 @@
         .btn-secondary {
             background: #e8f4f8;
             color: #2c5f7f;
-            border: 2px solid #d4e8f0;
+            border: 0.2px solid #000000;
         }
 
         .btn-secondary:hover {
@@ -884,11 +888,11 @@
                         <button class="role-btn admin" onclick="selectRole('admin', this)">🔐 Admin</button>
                     </div>
 
-                    <p id="changeRoleLink" class="hidden" style="font-size: 11px; color: #00a8a8; cursor: pointer; text-decoration: underline; margin-bottom: 10px;" onclick="resetRoleSelection()">↺ Change role</p>
+                    <p id="changeRoleLink" class="hidden" style="font-size: 11px; color: #bb0b0b; cursor: pointer; text-decoration: underline; margin-bottom: 10px;" onclick="resetRoleSelection()">↺ Change role</p>
 
                     <div class="form-group hidden" id="deptGroup">
                         <label>Department / Unit</label>
-                        <select id="deptSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                        <select id="deptSelect" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
                             <option value="" selected disabled>Select your Unit/Department</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
@@ -934,7 +938,9 @@
                 <div class="card hidden" id="userInfoCard">
                     <h2 id="userName">Welcome</h2>
                     <p id="userShift"></p>
+                    <!-- Always open, never gated by proposeShiftOpen -->
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="goToPreferences()">📋 REQUEST PREFERENCES</button>
+                    <!-- Gated: closes once Admin locks/posts the Approved Schedule (proposeShiftOpen = false) -->
                     <button class="btn-primary" id="proposeShiftBtn" style="width: 100%; margin-bottom: 8px;" disabled title="Not yet open by Admin" onclick="goToProposeShift()">🗓️ SHIFT REQUEST</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="logout()">LOGOUT</button>
                 </div>
@@ -946,7 +952,7 @@
 
                     <div class="form-group">
                         <label>Managing Unit</label>
-                        <select id="adminManageUnit" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="handleAdminUnitChange()">
+                        <select id="adminManageUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="handleAdminUnitChange()">
                             <option value="All">All Units</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
@@ -1147,7 +1153,7 @@
 
                     <div class="form-group">
                         <label>Filter by Unit</label>
-                        <select id="adminUnitFilter" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateAdminStaffSelect()">
+                        <select id="adminUnitFilter" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateAdminStaffSelect()">
                             <option value="All">All Units</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
@@ -1157,7 +1163,7 @@
 
                     <div class="form-group">
                         <label>Select Staff</label>
-                        <select id="adminStaffSelect" style="width: 100%; padding: 8px; border: 2px solid #d4e8f0; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="renderAdminStaffTables()"></select>
+                        <select id="adminStaffSelect" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="renderAdminStaffTables()"></select>
                     </div>
 
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromAdminStaff()">← BACK</button>
@@ -1217,6 +1223,32 @@
             ],
             approvedSchedule: {},
             savedTextTimeout: null,
+            // ============================================================
+            // BUSINESS RULE (FOR RECORD / FUTURE AI SCHEDULING ENGINE):
+            // "SHIFT REQUEST" (My Propose Shift) access is time-boxed by
+            // Admin: it is OPEN only while Admin has an active scheduling
+            // window (proposeShiftOpen = true). Once Admin reviews the
+            // "Pending Approval Schedule", finalizes it, and POSTS it as
+            // the new "Approved Schedule" (LOCKED), Admin must set
+            // proposeShiftOpen back to false — this immediately revokes
+            // staff access to Shift Request for that schedule period
+            // (they can no longer add/change ON/OFF/Available/PTO entries
+            // for dates that are now locked).
+            //
+            // "REQUEST PREFERENCES" is DIFFERENT and must NEVER be closed
+            // by this same flag. Preferences (Request ON/OFF for a future,
+            // not-yet-scheduled period) should always remain available to
+            // staff regardless of whether the current period's Shift
+            // Request window is open or closed. Do not gate the
+            // "REQUEST PREFERENCES" button with proposeShiftOpen (or any
+            // future equivalent) — only "SHIFT REQUEST" should be gated.
+            //
+            // When real backend/admin controls are built, the action of
+            // "Admin posts the Approved Schedule" should automatically
+            // flip proposeShiftOpen to false as part of that same
+            // operation, rather than relying on Admin to remember to do
+            // it as a separate manual step.
+            // ============================================================
             proposeShiftOpen: true, // TEMPORARY: set to true for testing. Will be controlled by Admin later.
             selectedAdminUnit: 'All',
             editingSlot: null
