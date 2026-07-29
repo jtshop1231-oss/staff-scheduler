@@ -1917,7 +1917,6 @@
                         <option value="">-- Select --</option>
                         <option value="on">Request ON</option>
                         <option value="off">Request OFF</option>
-                        <option value="pto">Request PTO</option>
                     </select>
                 </div>`;
 
@@ -2005,6 +2004,7 @@
                         <option value="on">ON Shift</option>
                         <option value="off">OFF Shift</option>
                         <option value="available">Available Shift</option>
+                        <option value="pto">Request PTO</option>
                     </select>
                 </div>`;
 
@@ -2032,7 +2032,7 @@
             }
 
             const cell = document.querySelector(`#proposeShiftPage .preference-cell[data-key="${dateKey}"]`);
-            cell.classList.remove('pref-on', 'pref-off', 'pref-available');
+            cell.classList.remove('pref-on', 'pref-off', 'pref-available', 'pref-pto');
 
             if (value) {
                 appState.proposedShift[dateKey] = value;
