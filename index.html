@@ -1740,6 +1740,22 @@
             body.innerHTML = html;
         }
 
+        // ============================================================
+        // BUSINESS RULE (FOR RECORD / FUTURE FEATURE):
+        // Once a schedule is APPROVED/LOCKED, staff can no longer freely
+        // submit ON/OFF changes for those dates via Shift Request (that
+        // window is closed). However, staff MAY request to "pick up" an
+        // open/vacant slot on an already-approved date (e.g. a coworker's
+        // shift that has no one assigned) — this pickup request must be
+        // explicitly approved by Admin. Only Admin can actually add or
+        // remove a staff member from an approved date slot; a staff
+        // pickup request should never auto-apply. This edit card below
+        // is currently the ADMIN's own direct-edit tool for the Approved
+        // Schedule; a staff-facing "Request to pick up this shift" flow
+        // (feeding into this same Admin approval step) is a planned but
+        // NOT YET BUILT feature.
+        // ============================================================
+
         // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED
         function openApprovedEditCard(dateKey, dateStr) {
             if (!appState.user || appState.user.role !== 'admin') return;
@@ -1926,21 +1942,26 @@
         function generateStaffStatusList(staffInUnit, unit, dateList) {
             document.getElementById('statusUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
 
+            // BUSINESS RULE: staff submit a MAX of 3 "ON Shift" days per week,
+            // not a selection for every single date. So "complete" means they
+            // reached the 3/week target for every week in this window —
+            // NOT that every date dropdown has a value.
             const totalDays = dateList.length;
+            const totalWeeks = Math.round(totalDays / 7);
+            const requiredOnShifts = totalWeeks * 3;
             let html = '';
 
             staffInUnit.forEach((name) => {
                 const submitted = appState.allSubmissions.proposedShift[name] || {};
-                const missingDates = dateList.filter(d => !submitted[d.key]).map(d => d.str);
+                const onCount = dateList.filter(d => submitted[d.key] === 'on').length;
                 let statusHTML;
 
-                if (missingDates.length === 0) {
-                    statusHTML = `<span class="status-ok">✅ Complete — all ${totalDays} days submitted</span>`;
-                } else if (missingDates.length === totalDays) {
-                    statusHTML = `<span class="status-warn">⚠️ Not yet submitted — 0 of ${totalDays} days</span>`;
+                if (onCount === 0) {
+                    statusHTML = `<span class="status-warn">⚠️ Not yet submitted — 0 of ${requiredOnShifts} required ON shifts</span>`;
+                } else if (onCount >= requiredOnShifts) {
+                    statusHTML = `<span class="status-ok">✅ Complete — ${onCount} of ${requiredOnShifts} required ON shifts submitted</span>`;
                 } else {
-                    const shown = missingDates.slice(0, 5).join(', ') + (missingDates.length > 5 ? `, +${missingDates.length - 5} more` : '');
-                    statusHTML = `<span class="status-warn">⚠️ Incomplete — missing ${missingDates.length} of ${totalDays} days (${shown})</span>`;
+                    statusHTML = `<span class="status-warn">⚠️ Incomplete — ${onCount} of ${requiredOnShifts} required ON shifts submitted</span>`;
                 }
 
                 html += `<tr><td>${name}</td><td>${statusHTML}</td></tr>`;
