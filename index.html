@@ -849,6 +849,47 @@
             display: inline;
         }
 
+        .saved-toast {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #ffffff;
+            color: #007a6b;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 800;
+            font-size: 16px;
+            padding: 14px 26px;
+            border-radius: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            border: 2px solid #00c9c3;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .saved-toast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .saved-toast-check {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #00c9c3;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
         /* HIDDEN */
         .hidden {
             display: none !important;
@@ -1221,6 +1262,12 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- SAVED TOAST NOTIFICATION -->
+    <div class="saved-toast" id="savedToast">
+        <span class="saved-toast-check">✓</span>
+        <span>Saved</span>
     </div>
 
     <script>
@@ -2144,14 +2191,7 @@
             appState.allSubmissions.proposedShift[appState.user.name] = { ...appState.proposedShift };
             appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
 
-            const saved = document.getElementById('proposeSavedText');
-            saved.classList.add('visible');
-            saved.textContent = '✓ Saved';
-
-            setTimeout(() => {
-                saved.classList.remove('visible');
-                saved.textContent = '';
-            }, 5000);
+            showSavedToast();
 
             console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
         }
@@ -2171,20 +2211,20 @@
             appState.allSubmissions.preferences[appState.user.name] = { ...appState.preferences };
             appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
 
-            if (appState.savedTextTimeout) {
-                clearTimeout(appState.savedTextTimeout);
-            }
-
-            const saved = document.getElementById('savedText');
-            saved.classList.add('visible');
-            saved.textContent = '✓ Saved';
-
-            appState.savedTextTimeout = setTimeout(() => {
-                saved.classList.remove('visible');
-                saved.textContent = '';
-            }, 5000);
+            showSavedToast();
 
             console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
+        }
+
+        // SHOW THE FLOATING "✓ Saved" TOAST FOR ~3.5 SECONDS
+        let savedToastTimeout = null;
+        function showSavedToast() {
+            const toast = document.getElementById('savedToast');
+            if (savedToastTimeout) clearTimeout(savedToastTimeout);
+            toast.classList.add('visible');
+            savedToastTimeout = setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3500);
         }
 
         // HANDLE ENTER KEY
