@@ -645,6 +645,18 @@
             letter-spacing: 3px;
         }
 
+        .shift-empty {
+            color: #e53935;
+            font-weight: 800;
+            font-size: 11px;
+        }
+
+        .shift-short {
+            color: #e53935;
+            font-weight: 800;
+            font-size: 11px;
+        }
+
         /* PREFERENCE PAGE */
         .preference-container {
             display: flex;
@@ -960,6 +972,11 @@
                         </select>
                     </div>
 
+                    <div class="form-group">
+                        <label>Minimum Staff / Shift</label>
+                        <input type="number" id="minStaffInput" min="1" value="4" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="updateMinStaffPerShift()">
+                    </div>
+
                     <button class="btn-primary" style="width: 100%; margin-bottom: 4px;" id="forApprovalBtn" onclick="goToForApproval()">🟡 PENDING APPROVAL SCHEDULE</button>
                     <p id="forApprovalNotice" class="hidden" style="font-size: 10px; color: #b8860b; margin-bottom: 8px;">Click above to view live staff submissions</p>
                     <button class="btn-secondary" style="width: 100%; margin-bottom: 8px;" id="shiftRequestToggleBtn" onclick="toggleShiftRequestWindow()">🔓 Shift Request: OPEN</button>
@@ -1231,7 +1248,8 @@
             staffDirectory: {},
             proposeShiftOpen: true,
             selectedAdminUnit: 'All',
-            editingSlot: null
+            editingSlot: null,
+            minStaffPerShift: 4
         };
 
         // DATES
@@ -1358,6 +1376,7 @@
 
                 appState.selectedAdminUnit = 'All';
                 document.getElementById('adminManageUnit').value = 'All';
+                document.getElementById('minStaffInput').value = appState.minStaffPerShift;
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
@@ -1384,6 +1403,35 @@
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
             generateApprovedSchedule();
+        }
+
+        // ADMIN: UPDATE MINIMUM REQUIRED STAFF PER SHIFT (used to flag short-staffed shifts in red)
+        function updateMinStaffPerShift() {
+            const input = document.getElementById('minStaffInput');
+            const val = parseInt(input.value, 10);
+            appState.minStaffPerShift = (isNaN(val) || val < 1) ? 1 : val;
+            input.value = appState.minStaffPerShift;
+            renderApprovedSchedule();
+        }
+
+        // BUILD THE DAY/NIGHT SHIFT CELL TEXT: shows "No one signed up" in red
+        // when empty, or the staff names plus a red "(Short by N)" note when
+        // the assigned count is below Admin's configured minimum.
+        function renderShiftCell(list) {
+            const min = appState.minStaffPerShift || 4;
+
+            if (list.length === 0) {
+                return '<span class="shift-empty">No one signed up</span>';
+            }
+
+            let html = `<span class="staff-names">${list.join(', ')}</span>`;
+
+            if (list.length < min) {
+                const shortBy = min - list.length;
+                html += ` <span class="shift-short">(Short by ${shortBy})</span>`;
+            }
+
+            return html;
         }
 
         // ADMIN: TOGGLE SHIFT REQUEST WINDOW OPEN/CLOSED
@@ -1673,10 +1721,10 @@
                 html += `<td onclick="openApprovedEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Day:</span> <span class="staff-names">${assignment.day.join(', ')}</span>
+                        <span class="shift-label">Day:</span> ${renderShiftCell(assignment.day)}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Night:</span> <span class="staff-names">${assignment.night.join(', ')}</span>
+                        <span class="shift-label">Night:</span> ${renderShiftCell(assignment.night)}
                     </div>
                 </td>`;
 
