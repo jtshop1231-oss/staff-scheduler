@@ -972,7 +972,7 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group hidden" id="minStaffGroup">
                         <label>Minimum Staff / Shift</label>
                         <input type="number" id="minStaffInput" min="1" value="4" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="updateMinStaffPerShift()">
                     </div>
@@ -1377,6 +1377,7 @@
                 appState.selectedAdminUnit = 'All';
                 document.getElementById('adminManageUnit').value = 'All';
                 document.getElementById('minStaffInput').value = appState.minStaffPerShift;
+                document.getElementById('minStaffGroup').classList.add('hidden');
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
@@ -1402,6 +1403,7 @@
             const unit = document.getElementById('adminManageUnit').value;
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
+            document.getElementById('minStaffGroup').classList.toggle('hidden', unit === 'All');
             generateApprovedSchedule();
         }
 
