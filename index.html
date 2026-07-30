@@ -479,7 +479,7 @@
         .edit-add-row select {
             flex: 1;
             padding: 8px;
-            border: 2px solid #d4e8f0;
+            border: 0.2px solid #000000;
             border-radius: 6px;
             font-size: 12px;
             font-family: 'Inter', sans-serif;
@@ -1224,49 +1224,12 @@
             ],
             approvedSchedule: {},
             savedTextTimeout: null,
-            // ============================================================
-            // REAL SUBMISSION STORE (replaces mock/demo pattern).
-            // Since there is no backend/database yet, this persists ONLY
-            // for the current browser tab session. Keyed by the staff
-            // name they typed in at login (case-sensitive as typed).
-            // allSubmissions.proposedShift[name] = { dateKey: 'on'|'off'|'available'|'pto' }
-            // allSubmissions.preferences[name]   = { dateKey: 'on'|'off'|'pto' }
-            // staffDirectory[name] = { unit, shift } — captured at login,
-            // used so Admin's Pending Approval / Staff Status views can
-            // filter by unit and know Day vs Night without guessing.
-            // ============================================================
             allSubmissions: {
                 proposedShift: {},
                 preferences: {}
             },
             staffDirectory: {},
-            // ============================================================
-            // BUSINESS RULE (FOR RECORD / FUTURE AI SCHEDULING ENGINE):
-            // "SHIFT REQUEST" (My Propose Shift) access is time-boxed by
-            // Admin: it is OPEN only while Admin has an active scheduling
-            // window (proposeShiftOpen = true). Once Admin reviews the
-            // "Pending Approval Schedule", finalizes it, and POSTS it as
-            // the new "Approved Schedule" (LOCKED), Admin must set
-            // proposeShiftOpen back to false — this immediately revokes
-            // staff access to Shift Request for that schedule period
-            // (they can no longer add/change ON/OFF/Available/PTO entries
-            // for dates that are now locked).
-            //
-            // "REQUEST PREFERENCES" is DIFFERENT and must NEVER be closed
-            // by this same flag. Preferences (Request ON/OFF for a future,
-            // not-yet-scheduled period) should always remain available to
-            // staff regardless of whether the current period's Shift
-            // Request window is open or closed. Do not gate the
-            // "REQUEST PREFERENCES" button with proposeShiftOpen (or any
-            // future equivalent) — only "SHIFT REQUEST" should be gated.
-            //
-            // When real backend/admin controls are built, the action of
-            // "Admin posts the Approved Schedule" should automatically
-            // flip proposeShiftOpen to false as part of that same
-            // operation, rather than relying on Admin to remember to do
-            // it as a separate manual step.
-            // ============================================================
-            proposeShiftOpen: true, // Default state on load. Now controllable by Admin via the "Shift Request" toggle button.
+            proposeShiftOpen: true,
             selectedAdminUnit: 'All',
             editingSlot: null
         };
@@ -1361,12 +1324,8 @@
             }
             appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
 
-            // Register/update this staff member in the directory so Admin's
-            // Pending Approval + Staff Status views know their unit/shift.
             appState.staffDirectory[name] = { unit, shift: appState.selectedShift };
 
-            // Restore their previously submitted data (if any) so re-logging
-            // in continues where they left off, instead of starting blank.
             appState.proposedShift = { ...(appState.allSubmissions.proposedShift[name] || {}) };
             appState.preferences = { ...(appState.allSubmissions.preferences[name] || {}) };
 
@@ -1428,9 +1387,6 @@
         }
 
         // ADMIN: TOGGLE SHIFT REQUEST WINDOW OPEN/CLOSED
-        // Real backend note: this should also auto-flip to CLOSED as part of
-        // "Admin posts/finalizes the Approved Schedule" — not rely on Admin
-        // remembering to click this manually every cycle.
         function toggleShiftRequestWindow() {
             appState.proposeShiftOpen = !appState.proposeShiftOpen;
             updateShiftRequestToggleUI();
@@ -1644,7 +1600,6 @@
         }
 
         // GENERATE APPROVED SCHEDULE
-        // DETERMINE WHICH UNIT'S SCHEDULE SHOULD BE SHOWN RIGHT NOW
         function getActiveApprovedUnit() {
             if (!appState.user) return null;
             if (appState.user.role === 'admin') {
@@ -1661,8 +1616,6 @@
             const staff = unit ? appState.allStaff.filter(name => staffUnitMap[name] === unit) : appState.allStaff;
             const totalStaff = staff.length;
 
-            // Show roughly half the unit's roster on Day, half on Night (rotates daily) -
-            // this means bigger units naturally show more names per cell, and the box grows to fit.
             const dayCount = Math.max(1, Math.ceil(totalStaff / 2));
             const nightCount = Math.max(1, totalStaff - dayCount) || dayCount;
 
@@ -1739,22 +1692,6 @@
             html += '</tr>';
             body.innerHTML = html;
         }
-
-        // ============================================================
-        // BUSINESS RULE (FOR RECORD / FUTURE FEATURE):
-        // Once a schedule is APPROVED/LOCKED, staff can no longer freely
-        // submit ON/OFF changes for those dates via Shift Request (that
-        // window is closed). However, staff MAY request to "pick up" an
-        // open/vacant slot on an already-approved date (e.g. a coworker's
-        // shift that has no one assigned) — this pickup request must be
-        // explicitly approved by Admin. Only Admin can actually add or
-        // remove a staff member from an approved date slot; a staff
-        // pickup request should never auto-apply. This edit card below
-        // is currently the ADMIN's own direct-edit tool for the Approved
-        // Schedule; a staff-facing "Request to pick up this shift" flow
-        // (feeding into this same Admin approval step) is a planned but
-        // NOT YET BUILT feature.
-        // ============================================================
 
         // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED
         function openApprovedEditCard(dateKey, dateStr) {
@@ -1838,7 +1775,6 @@
             card.classList.remove('card-visible');
             backdrop.classList.remove('active');
 
-            // re-enable animation for the next time the card opens
             requestAnimationFrame(() => {
                 card.classList.remove('no-anim');
                 backdrop.classList.remove('no-anim');
@@ -1867,8 +1803,6 @@
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
 
             const unit = appState.selectedAdminUnit || 'All';
-            // REAL staff list: everyone who has actually logged in for this
-            // unit (captured in staffDirectory), not the fixed mock roster.
             const staffInUnit = Object.keys(appState.staffDirectory).filter(
                 name => unit === 'All' || appState.staffDirectory[name].unit === unit
             );
@@ -1876,7 +1810,7 @@
             let html = '<tr>';
             let dayOfWeek = pendingStart.getDay();
             let currentDate = new Date(pendingStart);
-            const dateList = []; // { key, str } for every date in the window
+            const dateList = [];
             const uncoveredByMonth = {};
 
             for (let i = 0; i < dayOfWeek; i++) {
@@ -1942,10 +1876,6 @@
         function generateStaffStatusList(staffInUnit, unit, dateList) {
             document.getElementById('statusUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
 
-            // BUSINESS RULE: staff submit a MAX of 3 "ON Shift" days per week,
-            // not a selection for every single date. So "complete" means they
-            // reached the 3/week target for every week in this window —
-            // NOT that every date dropdown has a value.
             const totalDays = dateList.length;
             const totalWeeks = Math.round(totalDays / 7);
             const requiredOnShifts = totalWeeks * 3;
@@ -2032,22 +1962,6 @@
 
             grid.innerHTML = html;
         }
-
-        // HANDLE PREFERENCE DROPDOWN CHANGE
-        // ============================================================
-        // BUSINESS RULE (FOR RECORD / FUTURE AI SCHEDULING ENGINE):
-        // Staff may request/propose a MAXIMUM of 3 "ON" days per calendar
-        // week (Sunday-Saturday) in both "Request Preferences" (Request ON)
-        // and "Shift Request" (ON Shift). This is enforced client-side here
-        // by blocking a 4th "ON" selection within the same week.
-        //
-        // When the real backend/AI scheduling engine is integrated, it
-        // should independently re-validate this same rule against submitted
-        // data (never trust client-side validation alone), and any staff
-        // record that violates it (e.g. via a bypass or a data import) should
-        // be flagged for Admin review rather than silently accepted or
-        // silently auto-corrected.
-        // ============================================================
 
         // RESTORE A STAFF MEMBER'S PREVIOUSLY SUBMITTED SELECTIONS ONTO THE
         // GRID VISUALLY (dropdown value + colored cell) WHEN THEY RE-LOGIN.
@@ -2177,8 +2091,6 @@
                 return;
             }
 
-            // Save into the real submission store, keyed by staff name, so
-            // Admin's Pending Approval Schedule reflects this actual submission.
             appState.allSubmissions.proposedShift[appState.user.name] = { ...appState.proposedShift };
             appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
 
@@ -2207,7 +2119,6 @@
                 return;
             }
 
-            // Save into the real submission store, keyed by staff name.
             appState.allSubmissions.preferences[appState.user.name] = { ...appState.preferences };
             appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
 
