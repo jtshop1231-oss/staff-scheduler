@@ -1709,36 +1709,27 @@
         }
 
         function generateApprovedSchedule() {
+            // If a real schedule already exists (Admin has started assigning
+            // staff manually), keep it as-is — don't overwrite their work.
+            // Only build the blank date range the first time this runs.
+            if (Object.keys(appState.approvedSchedule).length > 0) {
+                renderApprovedSchedule();
+                return;
+            }
+
             const schedule = {};
             let currentDate = new Date(approvedStart);
-
-            const unit = getActiveApprovedUnit();
-            const staff = unit ? appState.allStaff.filter(name => staffUnitMap[name] === unit) : appState.allStaff;
-            const totalStaff = staff.length;
-
-            const dayCount = Math.max(1, Math.ceil(totalStaff / 2));
-            const nightCount = Math.max(1, totalStaff - dayCount) || dayCount;
-
-            let staffIndex = 0;
 
             while (currentDate <= approvedEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
 
-                const dayStaff = [];
-                for (let i = 0; i < dayCount; i++) {
-                    dayStaff.push(staff[(staffIndex + i) % totalStaff]);
-                }
-                const nightStaff = [];
-                for (let i = 0; i < nightCount; i++) {
-                    nightStaff.push(staff[(staffIndex + dayCount + i) % totalStaff]);
-                }
-
+                // BLANK BY DEFAULT: no auto-generated/mock staff. Admin fills
+                // in real names manually per date via the Edit Schedule card.
                 schedule[dateKey] = {
-                    day: dayStaff,
-                    night: nightStaff
+                    day: [],
+                    night: []
                 };
 
-                staffIndex += 2;
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
