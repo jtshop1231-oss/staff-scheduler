@@ -919,10 +919,33 @@
             border-radius: 10px;
         }
     </style>
+
+    <!-- FIREBASE SDK (compat version — works with plain <script> tags, no build tools needed) -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script>
+        // Firebase project config (staff-scheduler)
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-OTS47Fl9G3VWliJo_uVbbuh0VhbuG_g",
+            authDomain: "staff-scheduler-6b52d.firebaseapp.com",
+            projectId: "staff-scheduler-6b52d",
+            storageBucket: "staff-scheduler-6b52d.firebasestorage.app",
+            messagingSenderId: "796197433685",
+            appId: "1:796197433685:web:21f511b652b600e4a07fdc"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+    </script>
 </head>
 <body>
     <!-- HEADER -->
     <div class="header">
+        <div id="firebaseStatus" style="text-align:center; font-size:11px; font-weight:700; padding:3px; color:#003333;">
+            Checking Firebase connection...
+        </div>
         <h1>AI STAFF SCHEDULER</h1>
         <div class="header-info">
             <span id="deptDisplay" class="hidden"></span>
@@ -1315,7 +1338,34 @@
             generateApprovedSchedule();
             generatePreferenceGrid();
             generateProposeGrid();
+            testFirebaseConnection();
         };
+
+        // TEST FIREBASE CONNECTION — writes a small test document to Firestore
+        // and reads it back, to confirm the app is actually talking to the
+        // staff-scheduler Firebase project (not just that the SDK loaded).
+        function testFirebaseConnection() {
+            const statusEl = document.getElementById('firebaseStatus');
+            db.collection('_connectionTest').doc('ping').set({
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                message: 'AI Staff Scheduler connected'
+            })
+            .then(() => db.collection('_connectionTest').doc('ping').get())
+            .then((doc) => {
+                if (doc.exists) {
+                    statusEl.textContent = '✅ Connected to Firebase (staff-scheduler)';
+                    statusEl.style.color = '#00693e';
+                } else {
+                    statusEl.textContent = '⚠️ Firebase connected but read failed';
+                    statusEl.style.color = '#d84315';
+                }
+            })
+            .catch((error) => {
+                statusEl.textContent = '❌ Firebase connection failed: ' + error.message;
+                statusEl.style.color = '#e53935';
+                console.error('Firebase connection error:', error);
+            });
+        }
 
         // LIVE TIME
         function updateLiveTime() {
