@@ -987,6 +987,11 @@
                         </div>
 
                         <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="staffPassword" placeholder="Enter password" onkeypress="handleEnter(event, 'staff')">
+                        </div>
+
+                        <div class="form-group">
                             <label>Shift Preference</label>
                             <div class="shift-buttons">
                                 <button class="shift-btn" onclick="selectShift('day', this)">📅 Day</button>
@@ -1000,18 +1005,19 @@
                     <!-- ADMIN LOGIN -->
                     <div id="adminLoginForm" class="login-container hidden">
                         <div class="form-group">
-                            <label>Username</label>
-                            <input type="text" id="adminUsername" placeholder="admin" onkeypress="handleEnter(event, 'admin')">
+                            <label>Email</label>
+                            <input type="text" id="adminUsername" placeholder="admin@staffscheduler.local" onkeypress="handleEnter(event, 'admin')">
                         </div>
 
                         <div class="form-group">
                             <label>Password</label>
-                            <input type="password" id="adminPassword" placeholder="admin123" onkeypress="handleEnter(event, 'admin')">
+                            <input type="password" id="adminPassword" placeholder="Enter password" onkeypress="handleEnter(event, 'admin')">
                         </div>
 
                         <button class="btn-primary" onclick="loginAdmin()">LOGIN</button>
                     </div>
                 </div>
+
 
                 <!-- LOGGED IN INFO (STAFF) -->
                 <div class="card hidden" id="userInfoCard">
@@ -1424,11 +1430,64 @@
             document.getElementById('staffLoginBtn').disabled = false;
         }
 
+        // ============================================================
+        // LOGIN ATTEMPT LOCKOUT
+        // 2 failed attempts -> 2 minute lockout, tracked per email in
+        // localStorage so it persists even if the page is refreshed.
+        // ============================================================
+        const MAX_LOGIN_ATTEMPTS = 2;
+        const LOCKOUT_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+
+        function getLoginAttempts(identifier) {
+            const raw = localStorage.getItem('loginAttempts_' + identifier);
+            return raw ? JSON.parse(raw) : { count: 0, lockUntil: 0 };
+        }
+
+        function setLoginAttempts(identifier, data) {
+            localStorage.setItem('loginAttempts_' + identifier, JSON.stringify(data));
+        }
+
+        function isLockedOut(identifier) {
+            const data = getLoginAttempts(identifier);
+            return !!data.lockUntil && Date.now() < data.lockUntil;
+        }
+
+        function getLockoutRemainingSeconds(identifier) {
+            const data = getLoginAttempts(identifier);
+            return Math.max(0, Math.ceil((data.lockUntil - Date.now()) / 1000));
+        }
+
+        function recordFailedLoginAttempt(identifier) {
+            const data = getLoginAttempts(identifier);
+            data.count = (data.count || 0) + 1;
+            if (data.count >= MAX_LOGIN_ATTEMPTS) {
+                data.lockUntil = Date.now() + LOCKOUT_DURATION_MS;
+                data.count = 0;
+            }
+            setLoginAttempts(identifier, data);
+        }
+
+        function clearLoginAttempts(identifier) {
+            localStorage.removeItem('loginAttempts_' + identifier);
+        }
+
+        // Converts a staff's display name into their Firebase Auth email,
+        // e.g. "Carmen" -> "carmen@staffscheduler.local"
+        function nameToStaffEmail(name) {
+            return name.trim().toLowerCase().replace(/\s+/g, '') + '@staffscheduler.local';
+        }
+
         // LOGIN STAFF
-        function loginStaff() {
+        async function loginStaff() {
             const name = document.getElementById('staffName').value.trim();
+            const password = document.getElementById('staffPassword').value;
+
             if (!name) {
                 alert('Please enter your name');
+                return;
+            }
+            if (!password) {
+                alert('Please enter your password');
                 return;
             }
             if (!appState.selectedShift) {
@@ -1440,24 +1499,55 @@
                 alert('Please select your Unit/Department');
                 return;
             }
-            appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
 
-            appState.staffDirectory[name] = { unit, shift: appState.selectedShift };
+            const email = nameToStaffEmail(name);
 
-            appState.proposedShift = { ...(appState.allSubmissions.proposedShift[name] || {}) };
-            appState.preferences = { ...(appState.allSubmissions.preferences[name] || {}) };
+            if (isLockedOut(email)) {
+                alert(`Too many failed attempts. Please try again in ${getLockoutRemainingSeconds(email)} seconds.`);
+                return;
+            }
 
-            showHomepage();
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                clearLoginAttempts(email);
+
+                appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
+                appState.staffDirectory[name] = { unit, shift: appState.selectedShift };
+                appState.proposedShift = { ...(appState.allSubmissions.proposedShift[name] || {}) };
+                appState.preferences = { ...(appState.allSubmissions.preferences[name] || {}) };
+
+                showHomepage();
+            } catch (error) {
+                recordFailedLoginAttempt(email);
+                console.error('Staff login error:', error);
+                alert('Incorrect name or password.');
+            }
         }
 
         // LOGIN ADMIN
-        function loginAdmin() {
-            const username = document.getElementById('adminUsername').value;
+        async function loginAdmin() {
+            const email = document.getElementById('adminUsername').value.trim();
             const password = document.getElementById('adminPassword').value;
-            if (username === 'admin' && password === 'admin123') {
+
+            if (!email || !password) {
+                alert('Please enter your email and password');
+                return;
+            }
+
+            if (isLockedOut(email)) {
+                alert(`Too many failed attempts. Please try again in ${getLockoutRemainingSeconds(email)} seconds.`);
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                clearLoginAttempts(email);
+
                 appState.user = { role: 'admin', name: 'Admin', unit: 'All Units' };
                 showHomepage();
-            } else {
+            } catch (error) {
+                recordFailedLoginAttempt(email);
+                console.error('Admin login error:', error);
                 alert('Invalid credentials');
             }
         }
@@ -1713,6 +1803,8 @@
 
         // LOGOUT
         function logout() {
+            auth.signOut().catch((error) => console.error('Sign out error:', error));
+
             appState.user = null;
             appState.selectedShift = null;
             appState.preferences = {};
@@ -1725,6 +1817,7 @@
             document.getElementById('userInfoCard').classList.add('hidden');
             document.getElementById('adminInfoCard').classList.add('hidden');
             document.getElementById('staffName').value = '';
+            document.getElementById('staffPassword').value = '';
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
             document.getElementById('deptSelect').selectedIndex = 0;
