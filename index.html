@@ -1511,10 +1511,25 @@
                 await auth.signInWithEmailAndPassword(email, password);
                 clearLoginAttempts(email);
 
+                const staffKey = email.split('@')[0];
                 appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
-                appState.staffDirectory[name] = { unit, shift: appState.selectedShift };
-                appState.proposedShift = { ...(appState.allSubmissions.proposedShift[name] || {}) };
-                appState.preferences = { ...(appState.allSubmissions.preferences[name] || {}) };
+                appState.staffKey = staffKey;
+
+                // Register/update this staff member's directory entry in Firestore
+                // so Admin's Pending Approval + Staff Status views can find them.
+                db.collection('staffDirectory').doc(staffKey).set(
+                    { name, unit, shift: appState.selectedShift },
+                    { merge: true }
+                ).catch((error) => console.error('Error saving staff directory entry:', error));
+
+                // Restore their previously submitted Preferences + Shift Request
+                // from Firestore, so re-logging in continues where they left off.
+                const [prefDoc, shiftReqDoc] = await Promise.all([
+                    db.collection('preferences').doc(staffKey).get(),
+                    db.collection('shiftRequests').doc(staffKey).get()
+                ]);
+                appState.preferences = prefDoc.exists ? prefDoc.data() : {};
+                appState.proposedShift = shiftReqDoc.exists ? shiftReqDoc.data() : {};
 
                 showHomepage();
             } catch (error) {
@@ -1560,20 +1575,14 @@
                 document.getElementById('adminInfoCard').classList.remove('hidden');
                 document.getElementById('userInfoCard').classList.add('hidden');
 
-                document.getElementById('forApprovalBtn').disabled = !appState.proposeShiftOpen;
-                document.getElementById('forApprovalNotice').classList.toggle('hidden', !appState.proposeShiftOpen);
-                updateShiftRequestToggleUI();
-
                 appState.selectedAdminUnit = 'All';
                 document.getElementById('adminManageUnit').value = 'All';
-                document.getElementById('minStaffInput').value = appState.minStaffPerShift;
                 document.getElementById('minStaffGroup').classList.add('hidden');
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
                 document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
                 document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
-                document.getElementById('proposeShiftBtn').disabled = !appState.proposeShiftOpen;
             }
 
             const dept = document.getElementById('deptDisplay');
@@ -1583,9 +1592,60 @@
             document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
 
             startApprovedScheduleSync();
+            startSettingsSync();
 
             document.getElementById('centerPanel').classList.remove('hidden');
             document.getElementById('mainContainer').classList.remove('welcome-only');
+        }
+
+        // ============================================================
+        // SETTINGS SYNC — proposeShiftOpen (Shift Request window) and
+        // minStaffPerShift now live in Firestore (settings/config), shared
+        // by everyone in real time, instead of being local per-session.
+        // ============================================================
+        let settingsUnsubscribe = null;
+
+        function startSettingsSync() {
+            if (settingsUnsubscribe) return; // already listening
+
+            settingsUnsubscribe = db.collection('settings').doc('config').onSnapshot((doc) => {
+                if (!doc.exists) {
+                    // First-ever run: seed default settings.
+                    db.collection('settings').doc('config').set({
+                        proposeShiftOpen: true,
+                        minStaffPerShift: 4
+                    }).catch((error) => console.error('Error seeding settings:', error));
+                    return;
+                }
+
+                const data = doc.data();
+                appState.proposeShiftOpen = data.proposeShiftOpen !== false;
+                appState.minStaffPerShift = data.minStaffPerShift || 4;
+
+                applySettingsToUI();
+            }, (error) => {
+                console.error('Settings sync error:', error);
+            });
+        }
+
+        // APPLY THE CURRENT SETTINGS TO WHATEVER UI ELEMENTS ARE VISIBLE RIGHT NOW
+        function applySettingsToUI() {
+            if (!appState.user) return;
+
+            if (appState.user.role === 'admin') {
+                const forApprovalBtn = document.getElementById('forApprovalBtn');
+                if (forApprovalBtn) forApprovalBtn.disabled = !appState.proposeShiftOpen;
+                const notice = document.getElementById('forApprovalNotice');
+                if (notice) notice.classList.toggle('hidden', !appState.proposeShiftOpen);
+                updateShiftRequestToggleUI();
+                const minStaffInput = document.getElementById('minStaffInput');
+                if (minStaffInput) minStaffInput.value = appState.minStaffPerShift;
+            } else {
+                const proposeBtn = document.getElementById('proposeShiftBtn');
+                if (proposeBtn) proposeBtn.disabled = !appState.proposeShiftOpen;
+            }
+
+            renderApprovedSchedule();
         }
 
         // HANDLE ADMIN CHANGING WHICH UNIT THEY'RE MANAGING
@@ -1601,9 +1661,15 @@
         function updateMinStaffPerShift() {
             const input = document.getElementById('minStaffInput');
             const val = parseInt(input.value, 10);
-            appState.minStaffPerShift = (isNaN(val) || val < 1) ? 1 : val;
-            input.value = appState.minStaffPerShift;
-            renderApprovedSchedule();
+            const minStaffPerShift = (isNaN(val) || val < 1) ? 1 : val;
+            input.value = minStaffPerShift;
+
+            db.collection('settings').doc('config').set(
+                { minStaffPerShift },
+                { merge: true }
+            ).catch((error) => console.error('Error saving minStaffPerShift:', error));
+            // appState.minStaffPerShift + re-render happen automatically via
+            // the settings real-time listener (startSettingsSync).
         }
 
         // BUILD THE DAY/NIGHT SHIFT CELL TEXT: shows "No one signed up" in red
@@ -1628,8 +1694,13 @@
 
         // ADMIN: TOGGLE SHIFT REQUEST WINDOW OPEN/CLOSED
         function toggleShiftRequestWindow() {
-            appState.proposeShiftOpen = !appState.proposeShiftOpen;
-            updateShiftRequestToggleUI();
+            const newValue = !appState.proposeShiftOpen;
+            db.collection('settings').doc('config').set(
+                { proposeShiftOpen: newValue },
+                { merge: true }
+            ).catch((error) => console.error('Error saving proposeShiftOpen:', error));
+            // appState.proposeShiftOpen + UI update happen automatically via
+            // the settings real-time listener (startSettingsSync).
         }
 
         // SYNC TOGGLE BUTTON LABEL + DEPENDENT UI TO CURRENT proposeShiftOpen STATE
@@ -1808,6 +1879,10 @@
             if (approvedScheduleUnsubscribe) {
                 approvedScheduleUnsubscribe();
                 approvedScheduleUnsubscribe = null;
+            }
+            if (settingsUnsubscribe) {
+                settingsUnsubscribe();
+                settingsUnsubscribe = null;
             }
 
             appState.user = null;
@@ -2058,15 +2133,38 @@
         }
 
 
-        // GENERATE FOR APPROVAL SCHEDULE (mock/demo data - shows staff who marked "ON" in My Propose Shift)
-        function generateForApprovalSchedule() {
+        // GENERATE FOR APPROVAL SCHEDULE — Admin-only real-time view. Pulls
+        // every staff member's directory entry + submitted Shift Request
+        // straight from Firestore (not just people who logged in during
+        // this browser session), since Admin is allowed to read all of it.
+        async function generateForApprovalSchedule() {
             const header = document.getElementById('forApprovalHeader');
             const body = document.getElementById('forApprovalBody');
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
+            body.innerHTML = '<tr><td colspan="7" style="padding:20px;">Loading live submissions...</td></tr>';
 
             const unit = appState.selectedAdminUnit || 'All';
-            const staffInUnit = Object.keys(appState.staffDirectory).filter(
-                name => unit === 'All' || appState.staffDirectory[name].unit === unit
+
+            let directorySnapshot, shiftReqSnapshot;
+            try {
+                [directorySnapshot, shiftReqSnapshot] = await Promise.all([
+                    db.collection('staffDirectory').get(),
+                    db.collection('shiftRequests').get()
+                ]);
+            } catch (error) {
+                console.error('Error loading Pending Approval data:', error);
+                body.innerHTML = '<tr><td colspan="7" style="padding:20px;">Failed to load submissions: ' + error.message + '</td></tr>';
+                return;
+            }
+
+            const staffDirectory = {};
+            directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
+
+            const allShiftRequests = {};
+            shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
+
+            const staffKeysInUnit = Object.keys(staffDirectory).filter(
+                key => unit === 'All' || staffDirectory[key].unit === unit
             );
 
             let html = '<tr>';
@@ -2092,11 +2190,11 @@
                 const dayStaff = [];
                 const nightStaff = [];
 
-                staffInUnit.forEach((name) => {
-                    const submission = appState.allSubmissions.proposedShift[name] || {};
+                staffKeysInUnit.forEach((key) => {
+                    const submission = allShiftRequests[key] || {};
                     if (submission[dateKey] === 'on') {
-                        if (appState.staffDirectory[name].shift === 'day') dayStaff.push(name);
-                        else nightStaff.push(name);
+                        if (staffDirectory[key].shift === 'day') dayStaff.push(staffDirectory[key].name);
+                        else nightStaff.push(staffDirectory[key].name);
                     }
                 });
 
@@ -2130,12 +2228,12 @@
             html += '</tr>';
             body.innerHTML = html;
 
-            generateStaffStatusList(staffInUnit, unit, dateList);
+            generateStaffStatusList(staffKeysInUnit, staffDirectory, allShiftRequests, unit, dateList);
             generateUncoveredDatesSummary(uncoveredByMonth);
         }
 
-        // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC MISSING DATES (real data)
-        function generateStaffStatusList(staffInUnit, unit, dateList) {
+        // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC MISSING DATES (real data from Firestore)
+        function generateStaffStatusList(staffKeysInUnit, staffDirectory, allShiftRequests, unit, dateList) {
             document.getElementById('statusUnitLabel').textContent = unit === 'All' ? 'All Units' : unit;
 
             const totalDays = dateList.length;
@@ -2143,8 +2241,8 @@
             const requiredOnShifts = totalWeeks * 3;
             let html = '';
 
-            staffInUnit.forEach((name) => {
-                const submitted = appState.allSubmissions.proposedShift[name] || {};
+            staffKeysInUnit.forEach((key) => {
+                const submitted = allShiftRequests[key] || {};
                 const onCount = dateList.filter(d => submitted[d.key] === 'on').length;
                 let statusHTML;
 
@@ -2156,7 +2254,7 @@
                     statusHTML = `<span class="status-warn">⚠️ Incomplete — ${onCount} of ${requiredOnShifts} required ON shifts submitted</span>`;
                 }
 
-                html += `<tr><td>${name}</td><td>${statusHTML}</td></tr>`;
+                html += `<tr><td>${staffDirectory[key].name}</td><td>${statusHTML}</td></tr>`;
             });
 
             document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff have submitted a Shift Request yet for this unit.</td></tr>';
@@ -2342,7 +2440,7 @@
         }
 
         // SUBMIT MY PROPOSE SHIFT
-        function submitProposedShift() {
+        async function submitProposedShift() {
             if (!appState.user) {
                 alert('Please login first');
                 return;
@@ -2353,16 +2451,22 @@
                 return;
             }
 
-            appState.allSubmissions.proposedShift[appState.user.name] = { ...appState.proposedShift };
-            appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
-
-            showSavedToast();
-
-            console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
+            try {
+                await db.collection('shiftRequests').doc(appState.staffKey).set(appState.proposedShift);
+                await db.collection('staffDirectory').doc(appState.staffKey).set(
+                    { name: appState.user.name, unit: appState.user.unit, shift: appState.user.shift },
+                    { merge: true }
+                );
+                showSavedToast();
+                console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
+            } catch (error) {
+                console.error('Error saving shift request:', error);
+                alert('Failed to save: ' + error.message);
+            }
         }
 
         // SUBMIT PREFERENCES
-        function submitPreferences() {
+        async function submitPreferences() {
             if (!appState.user) {
                 alert('Please login first');
                 return;
@@ -2373,12 +2477,18 @@
                 return;
             }
 
-            appState.allSubmissions.preferences[appState.user.name] = { ...appState.preferences };
-            appState.staffDirectory[appState.user.name] = { unit: appState.user.unit, shift: appState.user.shift };
-
-            showSavedToast();
-
-            console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
+            try {
+                await db.collection('preferences').doc(appState.staffKey).set(appState.preferences);
+                await db.collection('staffDirectory').doc(appState.staffKey).set(
+                    { name: appState.user.name, unit: appState.user.unit, shift: appState.user.shift },
+                    { merge: true }
+                );
+                showSavedToast();
+                console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
+            } catch (error) {
+                console.error('Error saving preferences:', error);
+                alert('Failed to save: ' + error.message);
+            }
         }
 
         // SHOW THE FLOATING "✓ Saved" TOAST FOR ~3.5 SECONDS
@@ -2402,3 +2512,4 @@
     </script>
 </body>
 </html>
+RT 
