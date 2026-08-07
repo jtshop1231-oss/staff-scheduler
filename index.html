@@ -23,7 +23,7 @@
         /* HEADER */
         .header {
             background: linear-gradient(90deg, #87ceeb 0%, #b0e0e6 50%, #98fb98 100%);
-            padding: 12px 20px;
+            padding: 8px 20px;
             text-align: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
@@ -33,6 +33,7 @@
             font-weight: 700;
             color: #0F1B28;
             font-family: 'Space Grotesk', sans-serif;
+            line-height: 1.1;
         }
 
         .header-info {
@@ -141,7 +142,7 @@
         .main-container.welcome-only {
             justify-content: center;
             align-items: flex-start;
-            padding-top: 250px;
+            padding-top: 40px;
         }
 
         .left-panel {
@@ -943,7 +944,7 @@
 <body>
     <!-- HEADER -->
     <div class="header">
-        <div id="firebaseStatus" style="text-align:center; font-size:11px; font-weight:700; padding:3px; color:#003333;">
+        <div id="firebaseStatus" style="text-align:center; font-size:11px; font-weight:700; padding:2px; color:#003333;">
             Checking Firebase connection...
         </div>
         <h1>AI STAFF SCHEDULER</h1>
@@ -1341,7 +1342,6 @@
         window.onload = () => {
             updateLiveTime();
             setInterval(updateLiveTime, 1000);
-            generateApprovedSchedule();
             generatePreferenceGrid();
             generateProposeGrid();
             testFirebaseConnection();
@@ -1582,7 +1582,7 @@
 
             document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
 
-            generateApprovedSchedule();
+            startApprovedScheduleSync();
 
             document.getElementById('centerPanel').classList.remove('hidden');
             document.getElementById('mainContainer').classList.remove('welcome-only');
@@ -1594,7 +1594,7 @@
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
             document.getElementById('minStaffGroup').classList.toggle('hidden', unit === 'All');
-            generateApprovedSchedule();
+            renderApprovedSchedule();
         }
 
         // ADMIN: UPDATE MINIMUM REQUIRED STAFF PER SHIFT (used to flag short-staffed shifts in red)
@@ -1805,6 +1805,11 @@
         function logout() {
             auth.signOut().catch((error) => console.error('Sign out error:', error));
 
+            if (approvedScheduleUnsubscribe) {
+                approvedScheduleUnsubscribe();
+                approvedScheduleUnsubscribe = null;
+            }
+
             appState.user = null;
             appState.selectedShift = null;
             appState.preferences = {};
@@ -1851,33 +1856,49 @@
             return appState.user.unit;
         }
 
-        function generateApprovedSchedule() {
-            // If a real schedule already exists (Admin has started assigning
-            // staff manually), keep it as-is — don't overwrite their work.
-            // Only build the blank date range the first time this runs.
-            if (Object.keys(appState.approvedSchedule).length > 0) {
-                renderApprovedSchedule();
-                return;
-            }
+        // ============================================================
+        // APPROVED SCHEDULE — now synced with Firestore (collection:
+        // "approvedSchedule", one document per date, doc ID = dateKey).
+        // Everyone who is logged in (staff or admin) can READ this in
+        // real time. Only Admin can WRITE to it (enforced by Security
+        // Rules on the Firebase side, not just this client code).
+        // ============================================================
+        let approvedScheduleUnsubscribe = null;
 
-            const schedule = {};
+        function startApprovedScheduleSync() {
+            if (approvedScheduleUnsubscribe) return; // already listening, don't double-subscribe
+
+            approvedScheduleUnsubscribe = db.collection('approvedSchedule').onSnapshot((snapshot) => {
+                if (snapshot.empty) {
+                    // First-ever run: seed blank documents for the whole date range.
+                    seedBlankApprovedSchedule();
+                    return;
+                }
+                const schedule = {};
+                snapshot.forEach((doc) => {
+                    schedule[doc.id] = doc.data();
+                });
+                appState.approvedSchedule = schedule;
+                renderApprovedSchedule();
+            }, (error) => {
+                console.error('Approved schedule sync error:', error);
+            });
+        }
+
+        // ONE-TIME SEED: creates a blank day/night document for every date
+        // in the approved range, only if the collection is completely empty.
+        function seedBlankApprovedSchedule() {
+            const batch = db.batch();
             let currentDate = new Date(approvedStart);
 
             while (currentDate <= approvedEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
-
-                // BLANK BY DEFAULT: no auto-generated/mock staff. Admin fills
-                // in real names manually per date via the Edit Schedule card.
-                schedule[dateKey] = {
-                    day: [],
-                    night: []
-                };
-
+                const ref = db.collection('approvedSchedule').doc(dateKey);
+                batch.set(ref, { day: [], night: [] });
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
-            appState.approvedSchedule = schedule;
-            renderApprovedSchedule();
+            batch.commit().catch((error) => console.error('Error seeding approved schedule:', error));
         }
 
         // RENDER APPROVED SCHEDULE
@@ -2015,15 +2036,22 @@
             });
         }
 
-        // SUBMIT EDIT - SAVE CHANGES, THEN FLY BACK TO REVEAL THE UPDATED CALENDAR
+        // SUBMIT EDIT - SAVE CHANGES TO FIRESTORE. The real-time listener
+        // (startApprovedScheduleSync) will pick up the change and refresh
+        // the calendar automatically for everyone viewing it.
         function submitApprovedEdit() {
             const slot = appState.editingSlot;
             if (!slot) return;
 
-            appState.approvedSchedule[slot.dateKey] = { day: [...slot.day], night: [...slot.night] };
-            appState.editingSlot = null;
+            db.collection('approvedSchedule').doc(slot.dateKey).set({
+                day: [...slot.day],
+                night: [...slot.night]
+            }).catch((error) => {
+                console.error('Error saving approved schedule edit:', error);
+                alert('Failed to save changes: ' + error.message);
+            });
 
-            renderApprovedSchedule();
+            appState.editingSlot = null;
 
             document.getElementById('approvedEditCard').classList.remove('card-visible');
             document.getElementById('editOverlayBackdrop').classList.remove('active');
