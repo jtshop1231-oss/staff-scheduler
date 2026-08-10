@@ -970,17 +970,7 @@
 
                     <p id="changeRoleLink" class="hidden" style="font-size: 11px; color: #bb0b0b; cursor: pointer; text-decoration: underline; margin-bottom: 10px;" onclick="resetRoleSelection()">↺ Change role</p>
 
-                    <div class="form-group hidden" id="deptGroup">
-                        <label>Department / Unit</label>
-                        <select id="deptSelect" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
-                            <option value="" selected disabled>Select your Unit/Department</option>
-                            <option value="IMU">IMU</option>
-                            <option value="ICU">ICU</option>
-                            <option value="Telemetry">Telemetry</option>
-                        </select>
-                    </div>
-
-                    <!-- STAFF LOGIN -->
+                    <!-- STAFF LOGIN (existing account) -->
                     <div id="staffLoginForm" class="login-container hidden">
                         <div class="form-group">
                             <label>Your Name</label>
@@ -992,15 +982,47 @@
                             <input type="password" id="staffPassword" placeholder="Enter password" onkeypress="handleEnter(event, 'staff')">
                         </div>
 
+                        <button class="btn-primary" style="width: 100%;" onclick="loginStaff()">LOGIN</button>
+                        <p style="font-size: 11px; text-align: center; margin-top: 10px; cursor: pointer; text-decoration: underline; color: #0084d4;" onclick="showStaffRegisterForm()">Bagong staff? Mag-register dito</p>
+                    </div>
+
+                    <!-- STAFF REGISTER (new account — sets Unit + Shift ONCE, permanently) -->
+                    <div id="staffRegisterForm" class="login-container hidden">
                         <div class="form-group">
-                            <label>Shift Preference</label>
+                            <label>Your Name</label>
+                            <input type="text" id="regStaffName" placeholder="Enter your full name">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Department / Unit</label>
+                            <select id="regUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                                <option value="" selected disabled>Select your Unit/Department</option>
+                                <option value="IMU">IMU</option>
+                                <option value="ICU">ICU</option>
+                                <option value="Telemetry">Telemetry</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Shift (permanent — hindi na mababago)</label>
                             <div class="shift-buttons">
-                                <button class="shift-btn" onclick="selectShift('day', this)">📅 Day</button>
-                                <button class="shift-btn" onclick="selectShift('night', this)">🌙 Night</button>
+                                <button class="shift-btn" id="regShiftDayBtn" onclick="selectRegShift('day', this)">📅 Day</button>
+                                <button class="shift-btn" id="regShiftNightBtn" onclick="selectRegShift('night', this)">🌙 Night</button>
                             </div>
                         </div>
 
-                        <button class="btn-primary" id="staffLoginBtn" disabled onclick="loginStaff()">LOGIN</button>
+                        <div class="form-group">
+                            <label>Create Password</label>
+                            <input type="password" id="regPassword" placeholder="Minimum 6 characters">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Confirm Password</label>
+                            <input type="password" id="regConfirmPassword" placeholder="Re-enter password">
+                        </div>
+
+                        <button class="btn-primary" style="width: 100%;" onclick="registerStaff()">CREATE ACCOUNT</button>
+                        <p style="font-size: 11px; text-align: center; margin-top: 10px; cursor: pointer; text-decoration: underline; color: #0084d4;" onclick="showStaffLoginForm()">May account ka na? Mag-login dito</p>
                     </div>
 
                     <!-- ADMIN LOGIN -->
@@ -1260,6 +1282,40 @@
 
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromAdminStaff()">← BACK</button>
                 </div>
+
+                <!-- ADD / EDIT STAFF ROSTER: this is the source of truth for a
+                     staff member's Unit + Shift designation. Admin sets it here
+                     BEFORE the staff's first login, so login button clicks can
+                     never accidentally reassign someone's shift afterward. -->
+                <div class="card">
+                    <h2>🛠️ Fix Staff Info</h2>
+                    <p>Staff register themselves. Use this only to correct an existing staff member's Unit or Shift.</p>
+
+                    <div class="form-group">
+                        <label>Staff Name</label>
+                        <input type="text" id="rosterStaffName" placeholder="e.g. Carmen" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Unit / Department</label>
+                        <select id="rosterUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="IMU">IMU</option>
+                            <option value="ICU">ICU</option>
+                            <option value="Telemetry" selected>Telemetry</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Designated Shift</label>
+                        <select id="rosterShift" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="day">☀️ Day</option>
+                            <option value="night">🌙 Night</option>
+                        </select>
+                    </div>
+
+                    <button class="btn-primary" style="width: 100%;" onclick="saveStaffRosterEntry()">SAVE</button>
+                    <p id="rosterSavedText" class="hidden" style="font-size: 11px; color: #00a8a8; font-weight: 700; margin-top: 6px; text-align: center;">✓ Saved</p>
+                </div>
             </div>
 
             <!-- CENTER PANEL: TWO TABLES SIDE BY SIDE -->
@@ -1308,7 +1364,7 @@
         // APP STATE
         const appState = {
             user: null,
-            selectedShift: null,
+            selectedRegShift: null,
             preferences: {},
             proposedShift: {},
             allStaff: [
@@ -1391,20 +1447,20 @@
             btn.classList.add('active');
 
             const staffForm = document.getElementById('staffLoginForm');
+            const staffRegisterForm = document.getElementById('staffRegisterForm');
             const adminForm = document.getElementById('adminLoginForm');
-            const deptGroup = document.getElementById('deptGroup');
             const staffBtn = document.querySelector('.role-btn.staff');
             const adminBtn = document.querySelector('.role-btn.admin');
 
             if (role === 'staff') {
                 staffForm.classList.remove('hidden');
+                staffRegisterForm.classList.add('hidden');
                 adminForm.classList.add('hidden');
-                deptGroup.classList.remove('hidden');
                 adminBtn.classList.add('hidden');
             } else {
                 staffForm.classList.add('hidden');
+                staffRegisterForm.classList.add('hidden');
                 adminForm.classList.remove('hidden');
-                deptGroup.classList.add('hidden');
                 staffBtn.classList.add('hidden');
             }
             document.getElementById('changeRoleLink').classList.remove('hidden');
@@ -1417,17 +1473,29 @@
                 b.classList.remove('hidden');
             });
             document.getElementById('staffLoginForm').classList.add('hidden');
+            document.getElementById('staffRegisterForm').classList.add('hidden');
             document.getElementById('adminLoginForm').classList.add('hidden');
-            document.getElementById('deptGroup').classList.add('hidden');
             document.getElementById('changeRoleLink').classList.add('hidden');
         }
 
-        // SELECT SHIFT
-        function selectShift(shift, btn) {
-            appState.selectedShift = shift;
-            document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+        // TOGGLE BETWEEN STAFF LOGIN AND STAFF REGISTER FORMS
+        function showStaffRegisterForm() {
+            document.getElementById('staffLoginForm').classList.add('hidden');
+            document.getElementById('staffRegisterForm').classList.remove('hidden');
+        }
+
+        function showStaffLoginForm() {
+            document.getElementById('staffRegisterForm').classList.add('hidden');
+            document.getElementById('staffLoginForm').classList.remove('hidden');
+        }
+
+        // SELECT SHIFT (REGISTRATION ONLY — this is the one and only time a
+        // staff member's shift gets set; it is permanent after this)
+        function selectRegShift(shift, btn) {
+            appState.selectedRegShift = shift;
+            document.getElementById('regShiftDayBtn').classList.remove('active');
+            document.getElementById('regShiftNightBtn').classList.remove('active');
             btn.classList.add('active');
-            document.getElementById('staffLoginBtn').disabled = false;
         }
 
         // ============================================================
@@ -1477,7 +1545,8 @@
             return name.trim().toLowerCase().replace(/\s+/g, '') + '@staffscheduler.local';
         }
 
-        // LOGIN STAFF
+        // LOGIN STAFF (existing account — Name + Password only. Unit and
+        // Shift are NOT asked here; they were fixed permanently at Register.)
         async function loginStaff() {
             const name = document.getElementById('staffName').value.trim();
             const password = document.getElementById('staffPassword').value;
@@ -1488,15 +1557,6 @@
             }
             if (!password) {
                 alert('Please enter your password');
-                return;
-            }
-            if (!appState.selectedShift) {
-                alert('Please select a shift');
-                return;
-            }
-            const unit = document.getElementById('deptSelect').value;
-            if (!unit) {
-                alert('Please select your Unit/Department');
                 return;
             }
 
@@ -1512,15 +1572,18 @@
                 clearLoginAttempts(email);
 
                 const staffKey = email.split('@')[0];
-                appState.user = { role: 'staff', name, shift: appState.selectedShift, unit };
-                appState.staffKey = staffKey;
 
-                // Register/update this staff member's directory entry in Firestore
-                // so Admin's Pending Approval + Staff Status views can find them.
-                db.collection('staffDirectory').doc(staffKey).set(
-                    { name, unit, shift: appState.selectedShift },
-                    { merge: true }
-                ).catch((error) => console.error('Error saving staff directory entry:', error));
+                const directoryDoc = await db.collection('staffDirectory').doc(staffKey).get();
+                if (!directoryDoc.exists) {
+                    // Shouldn't normally happen — Register always creates this.
+                    alert('No staff record found for this account. Please contact Admin.');
+                    auth.signOut();
+                    return;
+                }
+                const { unit, shift } = directoryDoc.data();
+
+                appState.user = { role: 'staff', name, shift, unit };
+                appState.staffKey = staffKey;
 
                 // Restore their previously submitted Preferences + Shift Request
                 // from Firestore, so re-logging in continues where they left off.
@@ -1536,6 +1599,61 @@
                 recordFailedLoginAttempt(email);
                 console.error('Staff login error:', error);
                 alert('Incorrect name or password.');
+            }
+        }
+
+        // REGISTER STAFF (new account — the ONE time Unit + Shift are set;
+        // this becomes their permanent designation from here on)
+        async function registerStaff() {
+            const name = document.getElementById('regStaffName').value.trim();
+            const unit = document.getElementById('regUnit').value;
+            const shift = appState.selectedRegShift;
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+
+            if (!name) {
+                alert('Please enter your name');
+                return;
+            }
+            if (!unit) {
+                alert('Please select your Unit/Department');
+                return;
+            }
+            if (!shift) {
+                alert('Please select your shift');
+                return;
+            }
+            if (!password || password.length < 6) {
+                alert('Password must be at least 6 characters');
+                return;
+            }
+            if (password !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+
+            const email = nameToStaffEmail(name);
+            const staffKey = email.split('@')[0];
+
+            try {
+                await auth.createUserWithEmailAndPassword(email, password);
+
+                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, shift });
+
+                appState.user = { role: 'staff', name, shift, unit };
+                appState.staffKey = staffKey;
+                appState.preferences = {};
+                appState.proposedShift = {};
+
+                showHomepage();
+            } catch (error) {
+                console.error('Staff registration error:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    alert('An account with this name already exists. Please log in instead.');
+                    showStaffLoginForm();
+                } else {
+                    alert('Registration failed: ' + error.message);
+                }
             }
         }
 
@@ -1802,6 +1920,47 @@
             document.getElementById('homePage').classList.add('active');
         }
 
+        // ADMIN: CORRECT A STAFF ROSTER ENTRY'S UNIT/SHIFT — a fix-it tool
+        // for mistakes only. Staff normally set this themselves once via
+        // Register; this does NOT create login accounts, only edits the
+        // Unit/Shift on an EXISTING staff record.
+        async function saveStaffRosterEntry() {
+            const name = document.getElementById('rosterStaffName').value.trim();
+            const unit = document.getElementById('rosterUnit').value;
+            const shift = document.getElementById('rosterShift').value;
+
+            if (!name) {
+                alert('Please enter the staff name');
+                return;
+            }
+
+            const staffKey = nameToStaffEmail(name).split('@')[0];
+
+            try {
+                const existing = await db.collection('staffDirectory').doc(staffKey).get();
+                if (!existing.exists) {
+                    alert('No existing account found for this name. Staff must Register first before Admin can edit their info.');
+                    return;
+                }
+
+                await db.collection('staffDirectory').doc(staffKey).set(
+                    { name, unit, shift },
+                    { merge: true }
+                );
+
+                const saved = document.getElementById('rosterSavedText');
+                saved.classList.remove('hidden');
+                setTimeout(() => saved.classList.add('hidden'), 2000);
+
+                document.getElementById('rosterStaffName').value = '';
+
+                populateAdminStaffSelect();
+            } catch (error) {
+                console.error('Error saving staff roster entry:', error);
+                alert('Failed to save: ' + error.message);
+            }
+        }
+
         // POPULATE STAFF DROPDOWN — REAL staff who have actually logged in
         // (from Firestore staffDirectory), not the old fixed mock roster.
         async function populateAdminStaffSelect() {
@@ -1929,7 +2088,7 @@
             }
 
             appState.user = null;
-            appState.selectedShift = null;
+            appState.selectedRegShift = null;
             appState.preferences = {};
             appState.proposedShift = {};
             appState.editingSlot = null;
@@ -1941,9 +2100,12 @@
             document.getElementById('adminInfoCard').classList.add('hidden');
             document.getElementById('staffName').value = '';
             document.getElementById('staffPassword').value = '';
+            document.getElementById('regStaffName').value = '';
+            document.getElementById('regUnit').selectedIndex = 0;
+            document.getElementById('regPassword').value = '';
+            document.getElementById('regConfirmPassword').value = '';
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
-            document.getElementById('deptSelect').selectedIndex = 0;
             document.getElementById('deptDisplay').classList.add('hidden');
             document.getElementById('deptDisplay').textContent = '';
             resetRoleSelection();
@@ -1953,7 +2115,6 @@
             document.getElementById('homePage').classList.add('active');
             document.getElementById('mainContainer').classList.add('welcome-only');
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('staffLoginBtn').disabled = true;
             
             document.querySelectorAll('.preference-cell').forEach(cell => {
                 cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
@@ -2389,7 +2550,7 @@
             const weekStart = new Date(pendingStart);
             weekStart.setDate(weekStart.getDate() + Math.floor(diffDays / 7) * 7);
 
-            const keys = [];uuue
+            const keys = [];
             for (let i = 0; i < 7; i++) {
                 const dt = new Date(weekStart);
                 dt.setDate(dt.getDate() + i);
