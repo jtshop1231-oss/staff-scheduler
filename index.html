@@ -1802,66 +1802,109 @@
             document.getElementById('homePage').classList.add('active');
         }
 
-        // POPULATE STAFF DROPDOWN BASED ON UNIT FILTER
-        function populateAdminStaffSelect() {
+        // POPULATE STAFF DROPDOWN — REAL staff who have actually logged in
+        // (from Firestore staffDirectory), not the old fixed mock roster.
+        async function populateAdminStaffSelect() {
             const unit = document.getElementById('adminUnitFilter').value;
             const select = document.getElementById('adminStaffSelect');
-            const filtered = appState.allStaff.filter(name => unit === 'All' || staffUnitMap[name] === unit);
+            select.innerHTML = '<option value="">Loading...</option>';
 
-            select.innerHTML = filtered.map(name => `<option value="${name}">${name} (${staffUnitMap[name]})</option>`).join('');
+            let directorySnapshot;
+            try {
+                directorySnapshot = await db.collection('staffDirectory').get();
+            } catch (error) {
+                console.error('Error loading staff directory:', error);
+                select.innerHTML = '<option value="">Failed to load staff list</option>';
+                return;
+            }
+
+            const staffDirectory = {};
+            directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
+            appState.staffDirectoryCache = staffDirectory; // reused by renderAdminStaffTables
+
+            const filteredKeys = Object.keys(staffDirectory).filter(
+                key => unit === 'All' || staffDirectory[key].unit === unit
+            );
+
+            select.innerHTML = filteredKeys.length
+                ? filteredKeys.map(key => `<option value="${key}">${staffDirectory[key].name} (${staffDirectory[key].unit})</option>`).join('')
+                : '<option value="">No staff have logged in yet for this unit</option>';
+
             renderAdminStaffTables();
         }
 
-        // GENERATE MOCK VALUE FOR A GIVEN STAFF + DAY INDEX (DEMO DATA ONLY - NO BACKEND YET)
-        function getMockValue(staffIndex, dayIndex, options) {
-            return options[(staffIndex + dayIndex) % options.length];
-        }
+        // RENDER READ-ONLY CALENDAR FOR SELECTED STAFF — pulls their REAL
+        // submitted Preferences + Shift Request straight from Firestore.
+        async function renderAdminStaffTables() {
+            const staffKey = document.getElementById('adminStaffSelect').value;
+            if (!staffKey) {
+                document.getElementById('adminPrefGrid').innerHTML = '';
+                document.getElementById('adminProposeGrid').innerHTML = '';
+                return;
+            }
 
-        // RENDER READ-ONLY CALENDAR FOR SELECTED STAFF (PREFERENCES + PROPOSE SHIFT)
-        function renderAdminStaffTables() {
-            const staffName = document.getElementById('adminStaffSelect').value;
-            if (!staffName) return;
-
-            const staffIndex = appState.allStaff.indexOf(staffName);
+            const staffDirectory = appState.staffDirectoryCache || {};
+            const staffName = staffDirectory[staffKey] ? staffDirectory[staffKey].name : staffKey;
 
             document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
             document.getElementById('adminProposeTitle').textContent = `${staffName}'s Propose Shift`;
 
-            // PREFERENCES GRID (Request ON / OFF / PTO)
-            const prefOptions = ['on', 'off', 'pto'];
+            let prefDoc, shiftReqDoc;
+            try {
+                [prefDoc, shiftReqDoc] = await Promise.all([
+                    db.collection('preferences').doc(staffKey).get(),
+                    db.collection('shiftRequests').doc(staffKey).get()
+                ]);
+            } catch (error) {
+                console.error('Error loading staff submissions:', error);
+                document.getElementById('adminPrefGrid').innerHTML = 'Failed to load: ' + error.message;
+                return;
+            }
+
+            const preferences = prefDoc.exists ? prefDoc.data() : {};
+            const proposedShift = shiftReqDoc.exists ? shiftReqDoc.data() : {};
+
+            // PREFERENCES GRID (Request ON / OFF) — blank cell if not submitted
             const prefLabels = { on: 'Request ON', off: 'Request OFF', pto: 'Request PTO' };
             let prefHtml = '';
             let currentDate = new Date(pendingStart);
-            let dayIndex = 0;
 
             while (currentDate <= pendingEnd) {
+                const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const value = getMockValue(staffIndex, dayIndex, prefOptions);
-                prefHtml += `<div class="preference-cell pref-${value}">
-                    <div class="date-label-small">${dateStr}</div>
-                    <div style="font-size: 10px;">${prefLabels[value]}</div>
-                </div>`;
+                const value = preferences[dateKey];
+                prefHtml += value
+                    ? `<div class="preference-cell pref-${value}">
+                        <div class="date-label-small">${dateStr}</div>
+                        <div style="font-size: 10px;">${prefLabels[value] || value}</div>
+                    </div>`
+                    : `<div class="preference-cell">
+                        <div class="date-label-small">${dateStr}</div>
+                        <div style="font-size: 10px; color: #999;">— No selection —</div>
+                    </div>`;
                 currentDate.setDate(currentDate.getDate() + 1);
-                dayIndex++;
             }
             document.getElementById('adminPrefGrid').innerHTML = prefHtml;
 
-            // PROPOSE SHIFT GRID (ON / OFF / Available)
-            const proposeOptions = ['on', 'off', 'available'];
-            const proposeLabels = { on: 'ON Shift', off: 'OFF Shift', available: 'Available' };
+            // PROPOSE SHIFT GRID (ON / OFF / Available / PTO) — blank cell if not submitted
+            const proposeLabels = { on: 'ON Shift', off: 'OFF Shift', available: 'Available', pto: 'Request PTO' };
             let proposeHtml = '';
             currentDate = new Date(pendingStart);
-            dayIndex = 0;
 
             while (currentDate <= pendingEnd) {
+                const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const value = getMockValue(staffIndex + 1, dayIndex, proposeOptions);
-                proposeHtml += `<div class="preference-cell pref-${value}">
-                    <div class="date-label-small">${dateStr}</div>
-                    <div style="font-size: 10px;">${proposeLabels[value]}</div>
-                </div>`;
+                const value = proposedShift[dateKey];
+                proposeHtml += value
+                    ? `<div class="preference-cell pref-${value}">
+                        <div class="date-label-small">${dateStr}</div>
+                        <div style="font-size: 10px;">${proposeLabels[value] || value}</div>
+                    </div>`
+                    : `<div class="preference-cell">
+                        <div class="date-label-small">${dateStr}</div>
+                        <div style="font-size: 10px; color: #999;">— No selection —</div>
+                    </div>`;
                 currentDate.setDate(currentDate.getDate() + 1);
-                dayIndex++;
             }
             document.getElementById('adminProposeGrid').innerHTML = proposeHtml;
         }
@@ -2346,7 +2389,7 @@
             const weekStart = new Date(pendingStart);
             weekStart.setDate(weekStart.getDate() + Math.floor(diffDays / 7) * 7);
 
-            const keys = [];
+            const keys = [];uuue
             for (let i = 0; i < 7; i++) {
                 const dt = new Date(weekStart);
                 dt.setDate(dt.getDate() + i);
