@@ -1118,7 +1118,7 @@
             <div class="center-panel hidden" id="centerPanel">
                 <div class="schedule-section" id="approvedScheduleBox">
                     <h2>✅ Approved Schedule</h2>
-                    <div class="schedule-info">6/28 - 8/8 (LOCKED)</div>
+                    <div class="schedule-info" id="approvedDateRangeLabel">6/28 - 8/8 (LOCKED)</div>
 
                     <table class="schedule-table" id="approvedSchedule">
                         <thead>
@@ -1169,13 +1169,15 @@
                 <div class="card">
                     <h2>Hello, Admin!</h2>
                     <p>Live view of staff submissions</p>
+                    <p style="font-size: 11px; color: #b8860b; margin-bottom: 10px;">When ready, post this as the new Approved Schedule.</p>
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #ffb300 0%, #b8860b 100%); border-color: #b8860b;" onclick="postSchedule()">📤 POST SCHEDULE</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromForApproval()">← BACK</button>
                 </div>
             </div>
             <div class="center-panel">
                 <div class="schedule-section for-approval-section">
                     <h2>🟡 Pending Approval Schedule</h2>
-                    <div class="schedule-info">8/9 - 9/19 (LIVE - staff submitting)</div>
+                    <div class="schedule-info" id="pendingDateRangeLabel">8/9 - 9/19 (LIVE - staff submitting)</div>
 
                     <table class="schedule-table" id="forApprovalSchedule">
                         <thead>
@@ -1221,7 +1223,7 @@
             <div class="preference-center">
                 <div class="preference-section">
                     <h2 id="preferenceTitle">Submit Your Preferences</h2>
-                    <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
+                    <div class="preference-info" id="preferenceDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
 
                     <!-- CALENDAR HEADER -->
                     <div class="calendar-grid">
@@ -1263,7 +1265,7 @@
             <div class="preference-center">
                 <div class="preference-section">
                     <h2>Shift Request</h2>
-                    <div class="preference-info">8/9 - 9/19 (6 weeks)</div>
+                    <div class="preference-info" id="proposeDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
 
                     <!-- CALENDAR HEADER -->
                     <div class="calendar-grid">
@@ -1355,7 +1357,7 @@
             <div class="preference-center" style="flex-direction: row; gap: 12px; align-items: stretch;">
                 <div class="preference-section" style="flex: 1;">
                     <h2 id="adminPrefTitle" style="font-size: 18px;">Preferences</h2>
-                    <div class="preference-info" style="font-size: 13px;">8/9 - 9/19 (6 weeks)</div>
+                    <div class="preference-info" style="font-size: 13px;" id="adminPrefDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
                     <div class="calendar-grid">
                         <div class="day-header">SUN</div>
                         <div class="day-header">MON</div>
@@ -1370,7 +1372,7 @@
 
                 <div class="preference-section" style="flex: 1;">
                     <h2 id="adminProposeTitle" style="font-size: 18px;">Propose Shift</h2>
-                    <div class="preference-info" style="font-size: 13px;">8/9 - 9/19 (6 weeks)</div>
+                    <div class="preference-info" style="font-size: 13px;" id="adminProposeDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
                     <div class="calendar-grid">
                         <div class="day-header">SUN</div>
                         <div class="day-header">MON</div>
@@ -1421,11 +1423,48 @@
             minStaffPerShift: 4
         };
 
-        // DATES
-        const approvedStart = new Date(2026, 5, 28); // 6/28/2026
-        const approvedEnd = new Date(2026, 7, 8);    // 8/8/2026
-        const pendingStart = new Date(2026, 7, 9);   // 8/9/2026
-        const pendingEnd = new Date(2026, 8, 19);    // 9/19/2026
+        // DATES — these are now DYNAMIC (stored in Firestore settings/config),
+        // not fixed forever. They advance forward each time Admin posts a new
+        // Approved Schedule (see postSchedule()). These starting values are
+        // only the fallback/default used the very first time the app runs.
+        let approvedStart = new Date(2026, 5, 28); // 6/28/2026
+        let approvedEnd = new Date(2026, 7, 8);    // 8/8/2026
+        let pendingStart = new Date(2026, 7, 9);   // 8/9/2026
+        let pendingEnd = new Date(2026, 8, 19);    // 9/19/2026
+
+        // Convert a JS Date to a Firestore-safe date-only string (YYYY-MM-DD)
+        function dateToKey(d) {
+            return d.toISOString().split('T')[0];
+        }
+
+        // Convert a YYYY-MM-DD string back into a JS Date (local midnight)
+        function keyToDate(key) {
+            const [y, m, d] = key.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+
+        // Format a date range like "8/9 - 9/19"
+        function formatDateRange(start, end) {
+            return `${start.getMonth() + 1}/${start.getDate()} - ${end.getMonth() + 1}/${end.getDate()}`;
+        }
+
+        // UPDATE ALL ON-SCREEN DATE RANGE LABELS to match the current
+        // (dynamic) approved/pending date ranges.
+        function updateAllDateRangeLabels() {
+            const approvedRange = formatDateRange(approvedStart, approvedEnd);
+            const pendingRange = formatDateRange(pendingStart, pendingEnd);
+
+            const approvedLabel = document.getElementById('approvedDateRangeLabel');
+            if (approvedLabel) approvedLabel.textContent = `${approvedRange} (LOCKED)`;
+
+            const pendingLabel = document.getElementById('pendingDateRangeLabel');
+            if (pendingLabel) pendingLabel.textContent = `${pendingRange} (LIVE - staff submitting)`;
+
+            ['preferenceDateRangeLabel', 'proposeDateRangeLabel', 'adminPrefDateRangeLabel', 'adminProposeDateRangeLabel'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = `${pendingRange} (6 weeks)`;
+            });
+        }
 
         // INITIALIZE
         window.onload = () => {
@@ -1773,10 +1812,15 @@
 
             settingsUnsubscribe = db.collection('settings').doc('config').onSnapshot((doc) => {
                 if (!doc.exists) {
-                    // First-ever run: seed default settings.
+                    // First-ever run: seed default settings using the current
+                    // fallback date range defined above.
                     db.collection('settings').doc('config').set({
                         proposeShiftOpen: true,
-                        minStaffPerShift: 4
+                        minStaffPerShift: 4,
+                        approvedStart: dateToKey(approvedStart),
+                        approvedEnd: dateToKey(approvedEnd),
+                        pendingStart: dateToKey(pendingStart),
+                        pendingEnd: dateToKey(pendingEnd)
                     }).catch((error) => console.error('Error seeding settings:', error));
                     return;
                 }
@@ -1784,6 +1828,27 @@
                 const data = doc.data();
                 appState.proposeShiftOpen = data.proposeShiftOpen !== false;
                 appState.minStaffPerShift = data.minStaffPerShift || 4;
+
+                // Detect whether the date range actually changed (e.g. Admin
+                // just posted a new schedule) so we know whether to rebuild
+                // the calendar grids.
+                const newApprovedStartKey = data.approvedStart;
+                const datesChanged = newApprovedStartKey && newApprovedStartKey !== dateToKey(approvedStart);
+
+                if (data.approvedStart) approvedStart = keyToDate(data.approvedStart);
+                if (data.approvedEnd) approvedEnd = keyToDate(data.approvedEnd);
+                if (data.pendingStart) pendingStart = keyToDate(data.pendingStart);
+                if (data.pendingEnd) pendingEnd = keyToDate(data.pendingEnd);
+
+                updateAllDateRangeLabels();
+
+                if (datesChanged) {
+                    generatePreferenceGrid();
+                    generateProposeGrid();
+                    if (document.getElementById('forApprovalPage').classList.contains('active')) {
+                        generateForApprovalSchedule();
+                    }
+                }
 
                 applySettingsToUI();
             }, (error) => {
@@ -2272,7 +2337,8 @@
             body.innerHTML = html;
         }
 
-        // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED
+        // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED — edits the
+        // live Approved Schedule directly (visible to everyone right away).
         function openApprovedEditCard(dateKey, dateStr) {
             if (!appState.user || appState.user.role !== 'admin') return;
 
@@ -2295,6 +2361,8 @@
             backdrop.classList.remove('no-anim');
             backdrop.classList.add('active');
             card.classList.add('card-visible');
+        }
+
         }
 
         // RENDER THE STAFF CHIPS + ADD DROPDOWNS INSIDE THE EDIT CARD
@@ -2360,9 +2428,10 @@
             });
         }
 
-        // SUBMIT EDIT - SAVE CHANGES TO FIRESTORE. The real-time listener
-        // (startApprovedScheduleSync) will pick up the change and refresh
-        // the calendar automatically for everyone viewing it.
+        // SUBMIT EDIT - SAVE CHANGES TO FIRESTORE. If editing the live
+        // Approved Schedule, the real-time listener picks it up automatically.
+        // If editing the Draft (Pending Approval page), we manually refresh
+        // that page's data since it doesn't have a live listener.
         function submitApprovedEdit() {
             const slot = appState.editingSlot;
             if (!slot) return;
@@ -2441,7 +2510,8 @@
 
                 staffKeysInUnit.forEach((key) => {
                     const submission = allShiftRequests[key] || {};
-                    if (submission[dateKey] === 'on') {
+                    const status = submission[dateKey];
+                    if (status === 'on' || status === 'available' || status === 'pto') {
                         if (staffDirectory[key].shift === 'day') dayStaff.push(staffDirectory[key].name);
                         else nightStaff.push(staffDirectory[key].name);
                     }
@@ -2543,6 +2613,117 @@
             });
 
             container.innerHTML = html;
+        }
+
+        // ============================================================
+        // POST SCHEDULE — the "advance the cycle" action. This is the
+        // stand-in for the AI balancing engine (planned but not yet built):
+        // for now, it takes every staff member's submitted "ON" Shift
+        // Requests for the current Pending period AS-IS and publishes them
+        // directly as the new Approved Schedule. Once posted, Admin can
+        // fine-tune it using the existing click-to-edit tool on the
+        // Approved Schedule itself (same as always).
+        //
+        // Clicking this button:
+        //   1. Publishes the submitted ON requests as the new live
+        //      Approved Schedule (replacing whatever was approved before).
+        //   2. Advances the date ranges forward by one 6-week cycle, so a
+        //      fresh Pending period opens for staff to submit into.
+        //   3. Clears old Shift Request submissions (they were for the
+        //      period that just got approved) and re-opens the Shift
+        //      Request window for the new cycle. Preferences are left
+        //      untouched — they are not tied to a specific cycle.
+        // ============================================================
+        async function postSchedule() {
+            const confirmed = confirm(
+                'Post the current submitted Shift Requests as the new Approved Schedule?\n\n' +
+                'This will:\n' +
+                '- Replace the current Approved Schedule with everyone\'s submitted ON Shift Requests\n' +
+                '- Open a new 6-week Shift Request window after it\n' +
+                '- Clear old Shift Request submissions\n\n' +
+                'You can still fine-tune assignments afterward from the Approved Schedule. This cannot be undone. Continue?'
+            );
+            if (!confirmed) return;
+
+            try {
+                // 1. Pull every staff member's directory entry + submitted
+                //    Shift Request, so we can compute who is ON each date.
+                const [directorySnapshot, shiftReqSnapshot, oldApprovedSnapshot] = await Promise.all([
+                    db.collection('staffDirectory').get(),
+                    db.collection('shiftRequests').get(),
+                    db.collection('approvedSchedule').get()
+                ]);
+
+                const staffDirectory = {};
+                directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
+
+                const allShiftRequests = {};
+                shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
+
+                const batch = db.batch();
+
+                // Delete every old Approved Schedule document
+                oldApprovedSnapshot.forEach((doc) => {
+                    batch.delete(db.collection('approvedSchedule').doc(doc.id));
+                });
+
+                // Build the new Approved Schedule directly from submitted
+                // Shift Requests: ON, Available, and PTO all count as
+                // "on duty" for scheduling purposes. Only OFF is excluded
+                // (staff explicitly cannot/will not work that date).
+                let cursor = new Date(pendingStart);
+                while (cursor <= pendingEnd) {
+                    const key = dateToKey(cursor);
+                    const dayStaff = [];
+                    const nightStaff = [];
+
+                    Object.keys(staffDirectory).forEach((staffKey) => {
+                        const submission = allShiftRequests[staffKey] || {};
+                        const status = submission[key];
+                        if (status === 'on' || status === 'available' || status === 'pto') {
+                            if (staffDirectory[staffKey].shift === 'day') dayStaff.push(staffDirectory[staffKey].name);
+                            else nightStaff.push(staffDirectory[staffKey].name);
+                        }
+                    });
+
+                    batch.set(db.collection('approvedSchedule').doc(key), { day: dayStaff, night: nightStaff });
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+
+                // Clear old Shift Request submissions (that cycle is done)
+                shiftReqSnapshot.forEach((doc) => {
+                    batch.delete(db.collection('shiftRequests').doc(doc.id));
+                });
+
+                // 2. Compute the new date ranges: the just-approved period
+                //    becomes the new Approved range; a fresh 6-week Pending
+                //    window opens right after it.
+                const cycleDays = Math.round((pendingEnd - pendingStart) / (1000 * 60 * 60 * 24)) + 1;
+
+                const newApprovedStart = new Date(pendingStart);
+                const newApprovedEnd = new Date(pendingEnd);
+
+                const newPendingStart = new Date(newApprovedEnd);
+                newPendingStart.setDate(newPendingStart.getDate() + 1);
+                const newPendingEnd = new Date(newPendingStart);
+                newPendingEnd.setDate(newPendingEnd.getDate() + cycleDays - 1);
+
+                batch.set(db.collection('settings').doc('config'), {
+                    approvedStart: dateToKey(newApprovedStart),
+                    approvedEnd: dateToKey(newApprovedEnd),
+                    pendingStart: dateToKey(newPendingStart),
+                    pendingEnd: dateToKey(newPendingEnd),
+                    proposeShiftOpen: true // reopen Shift Request for the new cycle
+                }, { merge: true });
+
+                await batch.commit();
+
+                alert('New Approved Schedule posted! A new Shift Request window is now open for the next cycle.');
+                backToHomeFromForApproval();
+            } catch (error) {
+                console.error('Error posting schedule:', error);
+                alert('Failed to post schedule: ' + error.message);
+            }
         }
 
         // GENERATE PREFERENCE GRID
