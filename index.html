@@ -1169,7 +1169,7 @@
                 <div class="card">
                     <h2>Hello, Admin!</h2>
                     <p>Live view of staff submissions</p>
-                    <p style="font-size: 11px; color: #b8860b; margin-bottom: 10px;">When ready, post this as the new Approved Schedule.</p>
+                    <p style="font-size: 11px; color: #b8860b; margin-bottom: 10px;">Click any date to adjust the Assigned staff, then post when ready.</p>
                     <button class="btn-primary" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #ffb300 0%, #b8860b 100%); border-color: #b8860b;" onclick="postSchedule()">📤 POST SCHEDULE</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromForApproval()">← BACK</button>
                 </div>
@@ -2348,10 +2348,42 @@
             appState.editingSlot = {
                 dateKey,
                 day: [...assignment.day],
-                night: [...assignment.night]
+                night: [...assignment.night],
+                target: 'approved'
             };
 
             document.getElementById('editDateLabel').textContent = dateStr;
+
+            renderEditLists();
+
+            const card = document.getElementById('approvedEditCard');
+            const backdrop = document.getElementById('editOverlayBackdrop');
+            card.classList.remove('no-anim');
+            backdrop.classList.remove('no-anim');
+            backdrop.classList.add('active');
+            card.classList.add('card-visible');
+        }
+
+        // OPEN EDIT CARD FOR THE PENDING/DRAFT SCHEDULE (Pending Approval
+        // page). Pre-filled from appState.draftScheduleCache, which already
+        // merges: an Admin-saved draft for that date if one exists, OR the
+        // auto-computed list of everyone who submitted ON/Available/PTO for
+        // that date as a sensible starting point. This is Admin's private
+        // scratchpad — it does NOT touch the live Approved Schedule until
+        // Admin clicks "POST SCHEDULE".
+        function openDraftEditCard(dateKey, dateStr) {
+            if (!appState.user || appState.user.role !== 'admin') return;
+
+            const assignment = (appState.draftScheduleCache && appState.draftScheduleCache[dateKey]) || { day: [], night: [] };
+
+            appState.editingSlot = {
+                dateKey,
+                day: [...assignment.day],
+                night: [...assignment.night],
+                target: 'draft'
+            };
+
+            document.getElementById('editDateLabel').textContent = dateStr + ' (To Be Posted)';
 
             renderEditLists();
 
@@ -2428,17 +2460,23 @@
 
         // SUBMIT EDIT - SAVE CHANGES TO FIRESTORE. If editing the live
         // Approved Schedule, the real-time listener picks it up automatically.
-        // If editing the Draft (Pending Approval page), we manually refresh
-        // that page's data since it doesn't have a live listener.
+        // If editing the Draft/Pending page, we save to draftSchedule and
+        // manually refresh that page's data since it has no live listener.
         function submitApprovedEdit() {
             const slot = appState.editingSlot;
             if (!slot) return;
 
-            db.collection('approvedSchedule').doc(slot.dateKey).set({
+            const collectionName = slot.target === 'draft' ? 'draftSchedule' : 'approvedSchedule';
+
+            db.collection(collectionName).doc(slot.dateKey).set({
                 day: [...slot.day],
                 night: [...slot.night]
+            }).then(() => {
+                if (slot.target === 'draft') {
+                    generateForApprovalSchedule(); // refresh the Pending page display
+                }
             }).catch((error) => {
-                console.error('Error saving approved schedule edit:', error);
+                console.error('Error saving schedule edit:', error);
                 alert('Failed to save changes: ' + error.message);
             });
 
@@ -2461,11 +2499,12 @@
 
             const unit = appState.selectedAdminUnit || 'All';
 
-            let directorySnapshot, shiftReqSnapshot;
+            let directorySnapshot, shiftReqSnapshot, draftSnapshot;
             try {
-                [directorySnapshot, shiftReqSnapshot] = await Promise.all([
+                [directorySnapshot, shiftReqSnapshot, draftSnapshot] = await Promise.all([
                     db.collection('staffDirectory').get(),
-                    db.collection('shiftRequests').get()
+                    db.collection('shiftRequests').get(),
+                    db.collection('draftSchedule').get()
                 ]);
             } catch (error) {
                 console.error('Error loading Pending Approval data:', error);
@@ -2479,9 +2518,17 @@
             const allShiftRequests = {};
             shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
 
+            const savedDrafts = {};
+            draftSnapshot.forEach((doc) => { savedDrafts[doc.id] = doc.data(); });
+
             const staffKeysInUnit = Object.keys(staffDirectory).filter(
                 key => unit === 'All' || staffDirectory[key].unit === unit
             );
+
+            // Cache used by openDraftEditCard — merges any Admin-saved draft
+            // with an auto-computed default (from ON/Available/PTO
+            // submissions) for dates Admin hasn't touched yet.
+            appState.draftScheduleCache = {};
 
             let html = '<tr>';
             let dayOfWeek = pendingStart.getDay();
@@ -2523,13 +2570,28 @@
                     uncoveredByMonth[monthLabel].push({ dateStr, dayUncovered, nightUncovered });
                 }
 
-                html += `<td>
+                // Assigned = Admin's saved draft for this date if it exists,
+                // otherwise the auto-computed submission list above (a
+                // sensible starting point Admin can adjust by clicking).
+                const assigned = savedDrafts[dateKey] || { day: [...dayStaff], night: [...nightStaff] };
+                appState.draftScheduleCache[dateKey] = assigned;
+
+                const assignedDayHtml = assigned.day.length ? assigned.day.join(', ') : '<span style="color:#999;">— none —</span>';
+                const assignedNightHtml = assigned.night.length ? assigned.night.join(', ') : '<span style="color:#999;">— none —</span>';
+
+                html += `<td onclick="openDraftEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Day:</span> ${dayStaff.length ? `<span class="staff-names">${dayStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        <span class="shift-label">Requested Day:</span> ${dayStaff.length ? `<span class="staff-names">${dayStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Night:</span> ${nightStaff.length ? `<span class="staff-names">${nightStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        <span class="shift-label">Requested Night:</span> ${nightStaff.length ? `<span class="staff-names">${nightStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                    </div>
+                    <div class="shift-info" style="margin-top:4px; border-top: 1px dashed #ccc; padding-top: 3px;">
+                        <span class="shift-label" style="color:#b8860b;">✏️ Assigned Day:</span> ${assignedDayHtml}
+                    </div>
+                    <div class="shift-info">
+                        <span class="shift-label" style="color:#b8860b;">✏️ Assigned Night:</span> ${assignedNightHtml}
                     </div>
                 </td>`;
 
@@ -2544,6 +2606,7 @@
 
             html += '</tr>';
             body.innerHTML = html;
+            document.getElementById('forApprovalSchedule').classList.add('admin-editable');
 
             generateStaffStatusList(staffKeysInUnit, staffDirectory, allShiftRequests, unit, dateList);
             generateUncoveredDatesSummary(uncoveredByMonth);
@@ -2634,21 +2697,23 @@
         // ============================================================
         async function postSchedule() {
             const confirmed = confirm(
-                'Post the current submitted Shift Requests as the new Approved Schedule?\n\n' +
+                'Post the Assigned schedule (shown on this page) as the new Approved Schedule?\n\n' +
                 'This will:\n' +
-                '- Replace the current Approved Schedule with everyone\'s submitted ON Shift Requests\n' +
+                '- Replace the current Approved Schedule with the Assigned staff shown for each date\n' +
                 '- Open a new 6-week Shift Request window after it\n' +
-                '- Clear old Shift Request submissions\n\n' +
-                'You can still fine-tune assignments afterward from the Approved Schedule. This cannot be undone. Continue?'
+                '- Clear old Shift Request submissions and the working draft\n\n' +
+                'The current Approved Schedule stays untouched until you confirm. This cannot be undone. Continue?'
             );
             if (!confirmed) return;
 
             try {
                 // 1. Pull every staff member's directory entry + submitted
-                //    Shift Request, so we can compute who is ON each date.
-                const [directorySnapshot, shiftReqSnapshot, oldApprovedSnapshot] = await Promise.all([
+                //    Shift Request (for the auto-computed fallback), plus
+                //    any dates Admin already saved a draft for.
+                const [directorySnapshot, shiftReqSnapshot, draftSnapshot, oldApprovedSnapshot] = await Promise.all([
                     db.collection('staffDirectory').get(),
                     db.collection('shiftRequests').get(),
+                    db.collection('draftSchedule').get(),
                     db.collection('approvedSchedule').get()
                 ]);
 
@@ -2658,6 +2723,9 @@
                 const allShiftRequests = {};
                 shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
 
+                const savedDrafts = {};
+                draftSnapshot.forEach((doc) => { savedDrafts[doc.id] = doc.data(); });
+
                 const batch = db.batch();
 
                 // Delete every old Approved Schedule document
@@ -2665,28 +2733,37 @@
                     batch.delete(db.collection('approvedSchedule').doc(doc.id));
                 });
 
-                // Build the new Approved Schedule directly from submitted
-                // Shift Requests: ON, Available, and PTO all count as
-                // "on duty" for scheduling purposes. Only OFF is excluded
-                // (staff explicitly cannot/will not work that date).
+                // Build the new Approved Schedule: use Admin's saved draft
+                // for a date if one exists, otherwise fall back to the
+                // auto-computed list of everyone who submitted ON/Available/
+                // PTO for that date (OFF is always excluded).
                 let cursor = new Date(pendingStart);
                 while (cursor <= pendingEnd) {
                     const key = dateToKey(cursor);
-                    const dayStaff = [];
-                    const nightStaff = [];
 
-                    Object.keys(staffDirectory).forEach((staffKey) => {
-                        const submission = allShiftRequests[staffKey] || {};
-                        const status = submission[key];
-                        if (status === 'on' || status === 'available' || status === 'pto') {
-                            if (staffDirectory[staffKey].shift === 'day') dayStaff.push(staffDirectory[staffKey].name);
-                            else nightStaff.push(staffDirectory[staffKey].name);
-                        }
-                    });
+                    let assignment = savedDrafts[key];
+                    if (!assignment) {
+                        const dayStaff = [];
+                        const nightStaff = [];
+                        Object.keys(staffDirectory).forEach((staffKey) => {
+                            const submission = allShiftRequests[staffKey] || {};
+                            const status = submission[key];
+                            if (status === 'on' || status === 'available' || status === 'pto') {
+                                if (staffDirectory[staffKey].shift === 'day') dayStaff.push(staffDirectory[staffKey].name);
+                                else nightStaff.push(staffDirectory[staffKey].name);
+                            }
+                        });
+                        assignment = { day: dayStaff, night: nightStaff };
+                    }
 
-                    batch.set(db.collection('approvedSchedule').doc(key), { day: dayStaff, night: nightStaff });
+                    batch.set(db.collection('approvedSchedule').doc(key), assignment);
                     cursor.setDate(cursor.getDate() + 1);
                 }
+
+                // Clear the working draft (fresh scratchpad for next cycle)
+                draftSnapshot.forEach((doc) => {
+                    batch.delete(db.collection('draftSchedule').doc(doc.id));
+                });
 
                 // Clear old Shift Request submissions (that cycle is done)
                 shiftReqSnapshot.forEach((doc) => {
