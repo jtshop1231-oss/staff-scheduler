@@ -1127,38 +1127,43 @@
                         <tbody id="scheduleBody"></tbody>
                     </table>
                 </div>
-
-                <!-- BACKDROP: dims the calendar behind the floating edit card -->
-                <div class="edit-overlay-backdrop" id="editOverlayBackdrop" onclick="cancelApprovedEdit()"></div>
-
-                <!-- EDIT CARD: shown when Admin clicks a date slot -->
-                <div class="schedule-section edit-card" id="approvedEditCard">
-                    <h2>✏️ Edit Schedule — <span id="editDateLabel"></span></h2>
-
-                    <div class="edit-shift-block">
-                        <h3>☀️ Day Shift</h3>
-                        <div class="edit-staff-list" id="editDayList"></div>
-                        <div class="edit-add-row">
-                            <select id="editDayAddSelect"></select>
-                            <button class="btn-primary edit-add-btn" onclick="addStaffToSlot('day')">+ Add</button>
-                        </div>
-                    </div>
-
-                    <div class="edit-shift-block">
-                        <h3>🌙 Night Shift</h3>
-                        <div class="edit-staff-list" id="editNightList"></div>
-                        <div class="edit-add-row">
-                            <select id="editNightAddSelect"></select>
-                            <button class="btn-primary edit-add-btn" onclick="addStaffToSlot('night')">+ Add</button>
-                        </div>
-                    </div>
-
-                    <div class="preference-buttons" style="margin-top: 16px;">
-                        <button class="btn-secondary" onclick="cancelApprovedEdit()">Cancel</button>
-                        <button class="btn-primary" onclick="submitApprovedEdit()">Submit</button>
-                    </div>
-                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- BACKDROP: dims the page behind the floating edit card. This lives
+         OUTSIDE any single "page" div (directly under <body>) so it stays
+         usable no matter which page (Homepage or Pending Approval) is
+         currently active — it used to be trapped inside the Homepage's
+         hidden container, which made it invisible on other pages. -->
+    <div class="edit-overlay-backdrop" id="editOverlayBackdrop" onclick="cancelApprovedEdit()"></div>
+
+    <!-- EDIT CARD: shown when Admin clicks a date slot, on either the
+         Approved Schedule (Homepage) or the Pending Approval Schedule page. -->
+    <div class="schedule-section edit-card" id="approvedEditCard">
+        <h2>✏️ Edit Schedule — <span id="editDateLabel"></span></h2>
+
+        <div class="edit-shift-block">
+            <h3>☀️ Day Shift</h3>
+            <div class="edit-staff-list" id="editDayList"></div>
+            <div class="edit-add-row">
+                <select id="editDayAddSelect"></select>
+                <button class="btn-primary edit-add-btn" onclick="addStaffToSlot('day')">+ Add</button>
+            </div>
+        </div>
+
+        <div class="edit-shift-block">
+            <h3>🌙 Night Shift</h3>
+            <div class="edit-staff-list" id="editNightList"></div>
+            <div class="edit-add-row">
+                <select id="editNightAddSelect"></select>
+                <button class="btn-primary edit-add-btn" onclick="addStaffToSlot('night')">+ Add</button>
+            </div>
+        </div>
+
+        <div class="preference-buttons" style="margin-top: 16px;">
+            <button class="btn-secondary" onclick="cancelApprovedEdit()">Cancel</button>
+            <button class="btn-primary" onclick="submitApprovedEdit()">Submit</button>
         </div>
     </div>
 
