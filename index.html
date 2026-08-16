@@ -1175,7 +1175,7 @@
                     <h2>Hello, Admin!</h2>
                     <p>Live view of staff submissions</p>
                     <p style="font-size: 11px; color: #b8860b; margin-bottom: 10px;">Click any date to adjust the Assigned staff, then post when ready.</p>
-                    <button class="btn-primary" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #ffb300 0%, #b8860b 100%); border-color: #b8860b;" onclick="postSchedule()">📤 POST SCHEDULE</button>
+                    <button class="btn-primary" id="postScheduleBtn" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #ffb300 0%, #b8860b 100%); border-color: #b8860b;" onclick="postSchedule()">📤 POST SCHEDULE</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromForApproval()">← BACK</button>
                 </div>
             </div>
@@ -2701,6 +2701,9 @@
         //      untouched — they are not tied to a specific cycle.
         // ============================================================
         async function postSchedule() {
+            const btn = document.getElementById('postScheduleBtn');
+            if (btn.disabled) return; // guard against rapid double-clicks
+
             const confirmed = confirm(
                 'Post the Assigned schedule (shown on this page) as the new Approved Schedule?\n\n' +
                 'This will:\n' +
@@ -2710,6 +2713,9 @@
                 'The current Approved Schedule stays untouched until you confirm. This cannot be undone. Continue?'
             );
             if (!confirmed) return;
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Posting...';
 
             try {
                 // 1. Pull every staff member's directory entry + submitted
@@ -2730,6 +2736,20 @@
 
                 const savedDrafts = {};
                 draftSnapshot.forEach((doc) => { savedDrafts[doc.id] = doc.data(); });
+
+                // Safety check: if there's nothing to post (no submissions
+                // AND no manually-saved draft assignments), this is very
+                // likely an accidental repeat click on an already-fresh
+                // Pending window. Stop here instead of posting a blank
+                // schedule.
+                const hasAnySubmissions = shiftReqSnapshot.size > 0;
+                const hasAnyDraft = draftSnapshot.size > 0;
+                if (!hasAnySubmissions && !hasAnyDraft) {
+                    alert('Nothing to post: no Shift Request submissions and no Assigned staff found for this period. This looks like the Pending window was just opened — wait for staff to submit, or manually assign staff first.');
+                    btn.disabled = false;
+                    btn.textContent = '📤 POST SCHEDULE';
+                    return;
+                }
 
                 const batch = db.batch();
 
@@ -2799,10 +2819,14 @@
                 await batch.commit();
 
                 alert('New Approved Schedule posted! A new Shift Request window is now open for the next cycle.');
+                btn.disabled = false;
+                btn.textContent = '📤 POST SCHEDULE';
                 backToHomeFromForApproval();
             } catch (error) {
                 console.error('Error posting schedule:', error);
                 alert('Failed to post schedule: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '📤 POST SCHEDULE';
             }
         }
 
@@ -3022,3 +3046,4 @@
     </script>
 </body>
 </html>
+m
