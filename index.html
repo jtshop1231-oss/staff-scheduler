@@ -1272,6 +1272,8 @@
                     <!-- BUTTONS -->
                     <div class="preference-buttons">
                         <button class="btn-primary" id="submitPrefBtn" onclick="submitPreferences()">Submit</button>
+                        <button class="btn-primary hidden" id="submittedPrefBtn" disabled style="background: #8a8a8a; border-color: #6e6e6e; cursor: default;">SUBMITTED</button>
+                        <button class="btn-secondary hidden" id="editPrefBtn" onclick="enableEditMode('preference')">✏️ Edit</button>
                         <span class="saved-text" id="savedText"></span>
                     </div>
                 </div>
@@ -1314,6 +1316,8 @@
                     <!-- BUTTONS -->
                     <div class="preference-buttons">
                         <button class="btn-primary" id="submitProposeBtn" onclick="submitProposedShift()">Submit</button>
+                        <button class="btn-primary hidden" id="submittedProposeBtn" disabled style="background: #8a8a8a; border-color: #6e6e6e; cursor: default;">SUBMITTED</button>
+                        <button class="btn-secondary hidden" id="editProposeBtn" onclick="enableEditMode('propose')">✏️ Edit</button>
                         <span class="saved-text" id="proposeSavedText"></span>
                     </div>
                 </div>
@@ -1994,6 +1998,14 @@
             document.getElementById('preferenceTitle').textContent = title;
 
             applyRestoredSelections('preferences', 'select-', 'preferenceGrid');
+
+            // If they already have saved Preferences, show the page as
+            // locked/SUBMITTED by default — they must tap Edit to change it.
+            if (Object.keys(appState.preferences).length > 0) {
+                lockSubmittedUI('preference');
+            } else {
+                enableEditMode('preference');
+            }
         }
 
         // GO TO MY PROPOSE SHIFT
@@ -2008,6 +2020,42 @@
             document.getElementById('proposeUserShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
 
             applyRestoredSelections('proposedShift', 'propose-select-', 'proposeGrid');
+
+            // Same idea for Shift Request: default to locked/SUBMITTED if
+            // they already have a saved submission for this period.
+            if (Object.keys(appState.proposedShift).length > 0) {
+                lockSubmittedUI('propose');
+            } else {
+                enableEditMode('propose');
+            }
+        }
+
+        // LOCK the grid (SUBMITTED state) — disables every dropdown in the
+        // grid and shows "SUBMITTED" + "Edit" instead of the Submit button.
+        function lockSubmittedUI(type) {
+            const gridId = type === 'preference' ? 'preferenceGrid' : 'proposeGrid';
+            const submitBtnId = type === 'preference' ? 'submitPrefBtn' : 'submitProposeBtn';
+            const submittedBtnId = type === 'preference' ? 'submittedPrefBtn' : 'submittedProposeBtn';
+            const editBtnId = type === 'preference' ? 'editPrefBtn' : 'editProposeBtn';
+
+            document.querySelectorAll(`#${gridId} select`).forEach(sel => sel.disabled = true);
+            document.getElementById(submitBtnId).classList.add('hidden');
+            document.getElementById(submittedBtnId).classList.remove('hidden');
+            document.getElementById(editBtnId).classList.remove('hidden');
+        }
+
+        // UNLOCK the grid for editing — re-enables dropdowns and shows the
+        // Submit button again, hiding SUBMITTED/Edit.
+        function enableEditMode(type) {
+            const gridId = type === 'preference' ? 'preferenceGrid' : 'proposeGrid';
+            const submitBtnId = type === 'preference' ? 'submitPrefBtn' : 'submitProposeBtn';
+            const submittedBtnId = type === 'preference' ? 'submittedPrefBtn' : 'submittedProposeBtn';
+            const editBtnId = type === 'preference' ? 'editPrefBtn' : 'editProposeBtn';
+
+            document.querySelectorAll(`#${gridId} select`).forEach(sel => sel.disabled = false);
+            document.getElementById(submitBtnId).classList.remove('hidden');
+            document.getElementById(submittedBtnId).classList.add('hidden');
+            document.getElementById(editBtnId).classList.add('hidden');
         }
 
         // BACK TO HOME (FROM PROPOSE SHIFT PAGE)
@@ -3059,7 +3107,7 @@
                     { merge: true }
                 );
                 showSavedToast();
-                flashSubmittedButton('submitProposeBtn');
+                lockSubmittedUI('propose');
                 console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
             } catch (error) {
                 console.error('Error saving shift request:', error);
@@ -3086,24 +3134,12 @@
                     { merge: true }
                 );
                 showSavedToast();
-                flashSubmittedButton('submitPrefBtn');
+                lockSubmittedUI('preference');
                 console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
             } catch (error) {
                 console.error('Error saving preferences:', error);
                 alert('Failed to save: ' + error.message);
             }
-        }
-
-        // BRIEFLY CHANGE A SUBMIT BUTTON'S TEXT TO "SUBMITTED" as extra
-        // confirmation for the staff member, alongside the Saved toast.
-        function flashSubmittedButton(buttonId) {
-            const btn = document.getElementById(buttonId);
-            if (!btn) return;
-            const originalText = btn.textContent;
-            btn.textContent = 'SUBMITTED';
-            setTimeout(() => {
-                btn.textContent = originalText;
-            }, 2000);
         }
 
         // SHOW THE FLOATING "✓ Saved" TOAST FOR ~3.5 SECONDS
