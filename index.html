@@ -382,15 +382,23 @@
             margin-top: 12px;
         }
 
+        .status-section .schedule-table {
+            table-layout: auto;
+        }
+
         .status-section .schedule-table td {
             text-align: left;
             padding: 8px 10px;
+            white-space: normal;
+            word-break: break-word;
         }
 
         .status-section .schedule-table td:first-child {
             font-weight: 800;
             color: #2c5f7f;
             text-align: center;
+            white-space: nowrap;
+            width: 1%;
         }
 
         .status-ok {
@@ -2581,9 +2589,6 @@
                 const assigned = savedDrafts[dateKey] || { day: [...dayStaff], night: [...nightStaff] };
                 appState.draftScheduleCache[dateKey] = assigned;
 
-                const assignedDayHtml = assigned.day.length ? assigned.day.join(', ') : '<span style="color:#999;">— none —</span>';
-                const assignedNightHtml = assigned.night.length ? assigned.night.join(', ') : '<span style="color:#999;">— none —</span>';
-
                 html += `<td onclick="openDraftEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
@@ -2591,12 +2596,6 @@
                     </div>
                     <div class="shift-info">
                         <span class="shift-label">Requested Night:</span> ${nightStaff.length ? `<span class="staff-names">${nightStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
-                    </div>
-                    <div class="shift-info" style="margin-top:4px; border-top: 1px dashed #ccc; padding-top: 3px;">
-                        <span class="shift-label" style="color:#b8860b;">✏️ Assigned Day:</span> ${assignedDayHtml}
-                    </div>
-                    <div class="shift-info">
-                        <span class="shift-label" style="color:#b8860b;">✏️ Assigned Night:</span> ${assignedNightHtml}
                     </div>
                 </td>`;
 
@@ -2629,17 +2628,28 @@
             staffKeysInUnit.forEach((key) => {
                 const submitted = allShiftRequests[key] || {};
                 const onCount = dateList.filter(d => submitted[d.key] === 'on').length;
-                let statusHTML;
+                const ptoCount = dateList.filter(d => submitted[d.key] === 'pto').length;
+                const offCount = dateList.filter(d => submitted[d.key] === 'off').length;
 
+                let statusText;
+                let statusClass;
                 if (onCount === 0) {
-                    statusHTML = `<span class="status-warn">⚠️ Not yet submitted — 0 of ${requiredOnShifts} required ON shifts</span>`;
+                    statusText = `Not yet submitted - 0 of ${requiredOnShifts} required ON`;
+                    statusClass = 'status-warn';
                 } else if (onCount >= requiredOnShifts) {
-                    statusHTML = `<span class="status-ok">✅ Complete — ${onCount} of ${requiredOnShifts} required ON shifts submitted</span>`;
+                    statusText = `Completed - ${onCount} of ${requiredOnShifts} required ON`;
+                    statusClass = 'status-ok';
                 } else {
-                    statusHTML = `<span class="status-warn">⚠️ Incomplete — ${onCount} of ${requiredOnShifts} required ON shifts submitted</span>`;
+                    statusText = `Incomplete - ${onCount} of ${requiredOnShifts} required ON`;
+                    statusClass = 'status-warn';
                 }
 
-                html += `<tr><td>${staffDirectory[key].name}</td><td>${statusHTML}</td></tr>`;
+                const extras = [];
+                if (ptoCount > 0) extras.push(`${ptoCount} PTO`);
+                if (offCount > 0) extras.push(`${offCount} OFF`);
+                if (extras.length) statusText += ` (${extras.join(', ')})`;
+
+                html += `<tr><td>${staffDirectory[key].name}</td><td><span class="${statusClass}">${statusText}</span></td></tr>`;
             });
 
             document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff have submitted a Shift Request yet for this unit.</td></tr>';
@@ -3046,4 +3056,3 @@
     </script>
 </body>
 </html>
-m
