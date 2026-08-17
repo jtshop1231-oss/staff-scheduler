@@ -1313,7 +1313,7 @@
 
                     <!-- BUTTONS -->
                     <div class="preference-buttons">
-                        <button class="btn-primary" onclick="submitProposedShift()">Submit</button>
+                        <button class="btn-primary" id="submitProposeBtn" onclick="submitProposedShift()">Submit</button>
                         <span class="saved-text" id="proposeSavedText"></span>
                     </div>
                 </div>
@@ -3059,6 +3059,7 @@
                     { merge: true }
                 );
                 showSavedToast();
+                flashSubmittedButton('submitProposeBtn');
                 console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
             } catch (error) {
                 console.error('Error saving shift request:', error);
@@ -3085,11 +3086,24 @@
                     { merge: true }
                 );
                 showSavedToast();
+                flashSubmittedButton('submitPrefBtn');
                 console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
             } catch (error) {
                 console.error('Error saving preferences:', error);
                 alert('Failed to save: ' + error.message);
             }
+        }
+
+        // BRIEFLY CHANGE A SUBMIT BUTTON'S TEXT TO "SUBMITTED" as extra
+        // confirmation for the staff member, alongside the Saved toast.
+        function flashSubmittedButton(buttonId) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+            const originalText = btn.textContent;
+            btn.textContent = 'SUBMITTED';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
         }
 
         // SHOW THE FLOATING "✓ Saved" TOAST FOR ~3.5 SECONDS
