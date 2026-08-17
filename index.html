@@ -2787,15 +2787,28 @@
                 const savedDrafts = {};
                 draftSnapshot.forEach((doc) => { savedDrafts[doc.id] = doc.data(); });
 
-                // Safety check: if there's nothing to post (no submissions
-                // AND no manually-saved draft assignments), this is very
-                // likely an accidental repeat click on an already-fresh
-                // Pending window. Stop here instead of posting a blank
-                // schedule.
-                const hasAnySubmissions = shiftReqSnapshot.size > 0;
+                // POST SCHEDULE only affects the currently selected Managing
+                // Unit — it must NOT mix staff from different units together
+                // in the same Approved Schedule. Require a specific unit.
+                const unit = appState.selectedAdminUnit;
+                if (!unit || unit === 'All') {
+                    alert('Please select a specific Managing Unit (not "All Units") before posting a schedule.');
+                    btn.disabled = false;
+                    btn.textContent = '📤 POST SCHEDULE';
+                    return;
+                }
+
+                const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit);
+
+                // Safety check: if there's nothing to post for THIS unit (no
+                // submissions AND no manually-saved draft assignments), this
+                // is very likely an accidental repeat click on an
+                // already-fresh Pending window. Stop here instead of
+                // posting a blank schedule.
+                const hasAnySubmissions = staffKeysInUnit.some(k => allShiftRequests[k] && Object.keys(allShiftRequests[k]).length > 0);
                 const hasAnyDraft = draftSnapshot.size > 0;
                 if (!hasAnySubmissions && !hasAnyDraft) {
-                    alert('Nothing to post: no Shift Request submissions and no Assigned staff found for this period. This looks like the Pending window was just opened — wait for staff to submit, or manually assign staff first.');
+                    alert(`Nothing to post for ${unit}: no Shift Request submissions and no Assigned staff found for this period. This looks like the Pending window was just opened — wait for staff to submit, or manually assign staff first.`);
                     btn.disabled = false;
                     btn.textContent = '📤 POST SCHEDULE';
                     return;
@@ -2810,8 +2823,8 @@
 
                 // Build the new Approved Schedule: use Admin's saved draft
                 // for a date if one exists, otherwise fall back to the
-                // auto-computed list of everyone who submitted ON/Available/
-                // PTO for that date (OFF is always excluded).
+                // auto-computed list of everyone IN THIS UNIT who submitted
+                // ON/Available/PTO for that date (OFF is always excluded).
                 let cursor = new Date(pendingStart);
                 while (cursor <= pendingEnd) {
                     const key = dateToKey(cursor);
@@ -2820,7 +2833,7 @@
                     if (!assignment) {
                         const dayStaff = [];
                         const nightStaff = [];
-                        Object.keys(staffDirectory).forEach((staffKey) => {
+                        staffKeysInUnit.forEach((staffKey) => {
                             const submission = allShiftRequests[staffKey] || {};
                             const status = submission[key];
                             if (status === 'on' || status === 'available' || status === 'pto') {
@@ -2840,9 +2853,13 @@
                     batch.delete(db.collection('draftSchedule').doc(doc.id));
                 });
 
-                // Clear old Shift Request submissions (that cycle is done)
+                // Clear old Shift Request submissions FOR THIS UNIT ONLY
+                // (that cycle is done) — other units' in-progress
+                // submissions are left untouched.
                 shiftReqSnapshot.forEach((doc) => {
-                    batch.delete(db.collection('shiftRequests').doc(doc.id));
+                    if (staffKeysInUnit.includes(doc.id)) {
+                        batch.delete(db.collection('shiftRequests').doc(doc.id));
+                    }
                 });
 
                 // 2. Compute the new date ranges: the just-approved period
