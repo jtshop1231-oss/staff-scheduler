@@ -558,8 +558,8 @@
         }
 
         .uncovered-table th {
-            background: #d84315;
-            border: 1px solid #b8321a;
+            background: #2c5f7f;
+            border: 1px solid #1e4258;
             padding: 6px;
             font-size: 12px;
         }
@@ -567,18 +567,35 @@
         .uncovered-table td {
             font-size: 12px;
             font-weight: 700;
-            color: #d84315;
-            background: #fff5f0;
+            color: #2c5f7f;
+            background: #fff;
             text-align: left;
             vertical-align: top;
             padding: 8px 10px;
-            border: 1px solid #ffb300;
+            border: 1px solid #ccc;
+            white-space: normal;
+            word-break: break-word;
         }
 
         .uncovered-table td:first-child {
             font-weight: 800;
             white-space: nowrap;
-            width: 25%;
+            width: 1%;
+        }
+
+        .staffing-ok {
+            color: #00a8a8;
+            background: #f0fbfa !important;
+        }
+
+        .staffing-short {
+            color: #d84315;
+            background: #fff5f0 !important;
+        }
+
+        .staffing-extra {
+            color: #b8860b;
+            background: #fffaf0 !important;
         }
 
         .uncovered-none {
@@ -1212,7 +1229,7 @@
                     </table>
 
                     <div class="uncovered-summary">
-                        <h3>🚨 Dates With No Staff Assigned</h3>
+                        <h3>📋 Staffing Summary by Date</h3>
                         <div id="uncoveredMonthsContainer"></div>
                     </div>
                 </div>
@@ -2547,7 +2564,7 @@
             let dayOfWeek = pendingStart.getDay();
             let currentDate = new Date(pendingStart);
             const dateList = [];
-            const uncoveredByMonth = {};
+            const staffingByMonth = {};
 
             for (let i = 0; i < dayOfWeek; i++) {
                 html += '<td></td>';
@@ -2575,13 +2592,9 @@
                     }
                 });
 
-                const dayUncovered = dayStaff.length === 0;
-                const nightUncovered = nightStaff.length === 0;
-
-                if (dayUncovered || nightUncovered) {
-                    if (!uncoveredByMonth[monthLabel]) uncoveredByMonth[monthLabel] = [];
-                    uncoveredByMonth[monthLabel].push({ dateStr, dayUncovered, nightUncovered });
-                }
+                const minRequired = appState.minStaffPerShift || 4;
+                if (!staffingByMonth[monthLabel]) staffingByMonth[monthLabel] = [];
+                staffingByMonth[monthLabel].push({ dateStr, dayCount: dayStaff.length, nightCount: nightStaff.length, minRequired });
 
                 // Assigned = Admin's saved draft for this date if it exists,
                 // otherwise the auto-computed submission list above (a
@@ -2613,7 +2626,7 @@
             document.getElementById('forApprovalSchedule').classList.add('admin-editable');
 
             generateStaffStatusList(staffKeysInUnit, staffDirectory, allShiftRequests, unit, dateList);
-            generateUncoveredDatesSummary(uncoveredByMonth);
+            generateStaffingSummary(staffingByMonth);
         }
 
         // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC MISSING DATES (real data from Firestore)
@@ -2656,14 +2669,28 @@
         }
 
         // SUMMARIZE DATES WITH NO STAFF ASSIGNED, GROUPED BY MONTH, PORTRAIT (ROW-PER-DATE) FORMAT
-        function generateUncoveredDatesSummary(uncoveredByMonth) {
+        // Compute a short staffing status label for one shift on one date,
+        // compared against Admin's configured Minimum Staff / Shift.
+        function getStaffingStatusText(count, minRequired) {
+            if (count === minRequired) return 'Fully Staffed';
+            if (count < minRequired) return `${minRequired - count} Staff needed`;
+            return `${count - minRequired} extra`;
+        }
+
+        function getStaffingStatusClass(count, minRequired) {
+            if (count === minRequired) return 'staffing-ok';
+            if (count < minRequired) return 'staffing-short';
+            return 'staffing-extra';
+        }
+
+        function generateStaffingSummary(staffingByMonth) {
             const container = document.getElementById('uncoveredMonthsContainer');
             if (!container) return;
 
-            const months = Object.keys(uncoveredByMonth);
+            const months = Object.keys(staffingByMonth);
 
             if (months.length === 0) {
-                container.innerHTML = '<div class="uncovered-none">None — every date has at least one staff assigned</div>';
+                container.innerHTML = '<div class="uncovered-none">No dates in this period.</div>';
                 return;
             }
 
@@ -2677,10 +2704,12 @@
                         </thead>
                         <tbody>`;
 
-                uncoveredByMonth[month].forEach(record => {
-                    const dayCell = record.dayUncovered ? '❌ No staff' : '✅';
-                    const nightCell = record.nightUncovered ? '❌ No staff' : '✅';
-                    html += `<tr><td>${record.dateStr}</td><td>${dayCell}</td><td>${nightCell}</td></tr>`;
+                staffingByMonth[month].forEach(record => {
+                    const dayText = getStaffingStatusText(record.dayCount, record.minRequired);
+                    const dayClass = getStaffingStatusClass(record.dayCount, record.minRequired);
+                    const nightText = getStaffingStatusText(record.nightCount, record.minRequired);
+                    const nightClass = getStaffingStatusClass(record.nightCount, record.minRequired);
+                    html += `<tr><td>${record.dateStr}</td><td class="${dayClass}">${dayText}</td><td class="${nightClass}">${nightText}</td></tr>`;
                 });
 
                 html += `</tbody>
