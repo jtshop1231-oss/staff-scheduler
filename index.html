@@ -1386,7 +1386,10 @@
             <!-- CENTER PANEL: TWO TABLES SIDE BY SIDE -->
             <div class="preference-center" style="flex-direction: row; gap: 12px; align-items: stretch;">
                 <div class="preference-section" style="flex: 1;">
-                    <h2 id="adminPrefTitle" style="font-size: 18px;">Preferences</h2>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <h2 id="adminPrefTitle" style="font-size: 18px;">Preferences</h2>
+                        <span id="adminPrefShiftBadge" style="font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: #e8f4f8; color: #2c5f7f;"></span>
+                    </div>
                     <div class="preference-info" style="font-size: 13px;" id="adminPrefDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
                     <div class="calendar-grid">
                         <div class="day-header">SUN</div>
@@ -1401,7 +1404,10 @@
                 </div>
 
                 <div class="preference-section" style="flex: 1;">
-                    <h2 id="adminProposeTitle" style="font-size: 18px;">Propose Shift</h2>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <h2 id="adminProposeTitle" style="font-size: 18px;">Propose Shift</h2>
+                        <span id="adminProposeShiftBadge" style="font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: #e8f4f8; color: #2c5f7f;"></span>
+                    </div>
                     <div class="preference-info" style="font-size: 13px;" id="adminProposeDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
                     <div class="calendar-grid">
                         <div class="day-header">SUN</div>
@@ -2144,9 +2150,14 @@
 
             const staffDirectory = appState.staffDirectoryCache || {};
             const staffName = staffDirectory[staffKey] ? staffDirectory[staffKey].name : staffKey;
+            const staffShift = staffDirectory[staffKey] ? staffDirectory[staffKey].shift : null;
 
             document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
             document.getElementById('adminProposeTitle').textContent = `${staffName}'s Propose Shift`;
+
+            const shiftBadgeText = staffShift === 'night' ? '🌙 Night Shift' : staffShift === 'day' ? '☀️ Day Shift' : '';
+            document.getElementById('adminPrefShiftBadge').textContent = shiftBadgeText;
+            document.getElementById('adminProposeShiftBadge').textContent = shiftBadgeText;
 
             let prefDoc, shiftReqDoc;
             try {
