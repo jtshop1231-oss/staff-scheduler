@@ -1200,6 +1200,7 @@
                     <h2>Hello, Admin!</h2>
                     <p>Live view of staff submissions</p>
                     <p style="font-size: 11px; color: #b8860b; margin-bottom: 10px;">Click any date to adjust the Assigned staff, then post when ready.</p>
+                    <button class="btn-primary" id="aiBalanceBtn" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #7c4dff 0%, #512da8 100%); border-color: #512da8;" onclick="aiBalanceSchedule()">🤖 AI Balance Schedule</button>
                     <button class="btn-primary" id="postScheduleBtn" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #ffb300 0%, #b8860b 100%); border-color: #b8860b;" onclick="postSchedule()">📤 POST SCHEDULE</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromForApproval()">← BACK</button>
                 </div>
@@ -1380,6 +1381,20 @@
                             <option value="day">☀️ Day</option>
                             <option value="night">🌙 Night</option>
                         </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🔒 Pre-Set Days (Admin-only — AI will never rotate these; staff never see this control)</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px;">
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="0" onchange="updateLockedDaysSummary()"> Sun</label>
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="1" onchange="updateLockedDaysSummary()"> Mon</label>
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="2" onchange="updateLockedDaysSummary()"> Tue</label>
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="3" onchange="updateLockedDaysSummary()"> Wed</label>
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="4" onchange="updateLockedDaysSummary()"> Thu</label>
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="5" onchange="updateLockedDaysSummary()"> Fri</label>
+                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="6" onchange="updateLockedDaysSummary()"> Sat</label>
+                        </div>
+                        <p id="rosterLockedDaysSummary" style="font-size: 10px; font-weight: 700; color: #b8860b; margin-top: 4px;">No pre-set days</p>
                     </div>
 
                     <button class="btn-primary" style="width: 100%;" onclick="saveStaffRosterEntry()">SAVE</button>
@@ -2118,10 +2133,20 @@
         // for mistakes only. Staff normally set this themselves once via
         // Register; this does NOT create login accounts, only edits the
         // Unit/Shift on an EXISTING staff record.
+        // Show a plain-English summary of which days are currently checked,
+        // so Admin can tell at a glance which days are Pre-Set for this staff.
+        function updateLockedDaysSummary() {
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const checked = Array.from(document.querySelectorAll('.rosterLockedDay:checked')).map(cb => dayNames[parseInt(cb.value, 10)]);
+            const summary = document.getElementById('rosterLockedDaysSummary');
+            summary.textContent = checked.length ? `🔒 Pre-Set: ${checked.join(', ')}` : 'No pre-set days';
+        }
+
         async function saveStaffRosterEntry() {
             const name = document.getElementById('rosterStaffName').value.trim();
             const unit = document.getElementById('rosterUnit').value;
             const shift = document.getElementById('rosterShift').value;
+            const lockedDays = Array.from(document.querySelectorAll('.rosterLockedDay:checked')).map(cb => parseInt(cb.value, 10));
 
             if (!name) {
                 alert('Please enter the staff name');
@@ -2138,7 +2163,7 @@
                 }
 
                 await db.collection('staffDirectory').doc(staffKey).set(
-                    { name, unit, shift },
+                    { name, unit, shift, lockedDays },
                     { merge: true }
                 );
 
@@ -2147,6 +2172,8 @@
                 setTimeout(() => saved.classList.add('hidden'), 2000);
 
                 document.getElementById('rosterStaffName').value = '';
+                document.querySelectorAll('.rosterLockedDay').forEach(cb => cb.checked = false);
+                updateLockedDaysSummary();
 
                 populateAdminStaffSelect();
             } catch (error) {
@@ -2798,6 +2825,177 @@
         //      Request window for the new cycle. Preferences are left
         //      untouched — they are not tied to a specific cycle.
         // ============================================================
+        // ============================================================
+        // AI BALANCE SCHEDULE — calls the /api/balance-schedule serverless
+        // function (which securely calls Claude) to compute a fair,
+        // rule-following draft assignment for the current Pending period.
+        // The result is written into the Draft (draftSchedule collection),
+        // the SAME scratchpad Admin can click-to-edit before posting — this
+        // does NOT touch the live Approved Schedule by itself.
+        // ============================================================
+        async function aiBalanceSchedule() {
+            const btn = document.getElementById('aiBalanceBtn');
+            if (btn.disabled) return;
+
+            const unit = appState.selectedAdminUnit;
+            if (!unit || unit === 'All') {
+                alert('Please select a specific Managing Unit (not "All Units") before running AI Balance.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '🤖 Balancing...';
+
+            try {
+                const [directorySnapshot, shiftReqSnapshot, prefSnapshot, currentApprovedSnapshot] = await Promise.all([
+                    db.collection('staffDirectory').get(),
+                    db.collection('shiftRequests').get(),
+                    db.collection('preferences').get(),
+                    db.collection('approvedSchedule').get()
+                ]);
+
+                const staffDirectory = {};
+                directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
+
+                const allShiftRequests = {};
+                shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
+
+                const allPreferences = {};
+                prefSnapshot.forEach((doc) => { allPreferences[doc.id] = doc.data(); });
+
+                // The CURRENT live Approved Schedule — this is "last cycle"
+                // from the perspective of the period we're about to balance.
+                // Used purely to figure out which weekday(s) each staff
+                // worked last time, so AI can rotate them forward.
+                const currentApproved = {};
+                currentApprovedSnapshot.forEach((doc) => { currentApproved[doc.id] = doc.data(); });
+
+                const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit);
+
+                if (staffKeysInUnit.length === 0) {
+                    alert(`No staff found in ${unit}.`);
+                    btn.disabled = false;
+                    btn.textContent = '🤖 AI Balance Schedule';
+                    return;
+                }
+
+                // Build the date list for the current Pending period
+                const dateKeys = [];
+                let cursor = new Date(pendingStart);
+                while (cursor <= pendingEnd) {
+                    dateKeys.push(dateToKey(cursor));
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+
+                const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+                // For each staff, find which weekday(s) they were on in the
+                // CURRENT (soon-to-be-previous) Approved Schedule, so AI can
+                // rotate them to the next weekday this cycle.
+                function getPreviousWeekdaysFor(name, shiftType) {
+                    const found = new Set();
+                    Object.keys(currentApproved).forEach((dateKey) => {
+                        const entry = currentApproved[dateKey];
+                        const list = shiftType === 'day' ? entry.day : entry.night;
+                        if (Array.isArray(list) && list.includes(name)) {
+                            found.add(keyToDate(dateKey).getDay());
+                        }
+                    });
+                    return Array.from(found).map(d => weekdayNames[d]);
+                }
+
+                // ============================================================
+                // QUARTERLY-ROTATING PRIORITY ORDER — computed here in JS
+                // (not left to the AI to reason about) so it's exact and
+                // repeatable. Every calendar quarter, the tie-break order
+                // among staff rotates, so the same early submitter doesn't
+                // permanently keep first pick forever.
+                // ============================================================
+                const quarterNum = Math.floor(pendingStart.getMonth() / 3);
+                const quarterIndex = pendingStart.getFullYear() * 4 + quarterNum;
+                const baseOrder = [...staffKeysInUnit].sort(); // stable alphabetical baseline
+                const rotationOffset = baseOrder.length > 0 ? quarterIndex % baseOrder.length : 0;
+                const rotatedOrder = baseOrder.slice(rotationOffset).concat(baseOrder.slice(0, rotationOffset));
+                const priorityRankByKey = {};
+                rotatedOrder.forEach((key, idx) => { priorityRankByKey[key] = idx + 1; }); // 1 = highest priority this quarter
+
+                // Build the staff payload with everything AI needs.
+                const staffPayload = staffKeysInUnit.map((key) => {
+                    const shiftReqSubmission = allShiftRequests[key] || {};
+                    const prefSubmission = allPreferences[key] || {};
+
+                    const statusByDate = {};
+                    Object.keys(shiftReqSubmission).forEach((k) => {
+                        if (k !== '_submittedAt') statusByDate[k] = shiftReqSubmission[k];
+                    });
+
+                    // PRIMARY FCFS reference = Preferences submission time.
+                    // FALLBACK = Shift Request submission time, only used if
+                    // the staff never submitted Preferences.
+                    let fcfsTimestamp = null;
+                    let fcfsSource = null;
+                    if (prefSubmission._submittedAt && typeof prefSubmission._submittedAt.toMillis === 'function') {
+                        fcfsTimestamp = prefSubmission._submittedAt.toMillis();
+                        fcfsSource = 'preferences';
+                    } else if (shiftReqSubmission._submittedAt && typeof shiftReqSubmission._submittedAt.toMillis === 'function') {
+                        fcfsTimestamp = shiftReqSubmission._submittedAt.toMillis();
+                        fcfsSource = 'shiftRequest';
+                    }
+
+                    const staffShift = staffDirectory[key].shift;
+                    const lockedDayNumbers = Array.isArray(staffDirectory[key].lockedDays) ? staffDirectory[key].lockedDays : [];
+
+                    return {
+                        name: staffDirectory[key].name,
+                        shift: staffShift,
+                        lockedWeekdays: lockedDayNumbers.map(d => weekdayNames[d]),
+                        previousWeekdays: getPreviousWeekdaysFor(staffDirectory[key].name, staffShift),
+                        fcfsTimestamp,
+                        fcfsSource,
+                        quarterlyPriorityRank: priorityRankByKey[key],
+                        statusByDate
+                    };
+                });
+
+                const response = await fetch('/api/balance-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staff: staffPayload,
+                        dateKeys,
+                        minStaffPerShift: appState.minStaffPerShift || 4
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'AI Balance failed.');
+                }
+
+                // Write the AI's proposed schedule into the Draft
+                // (draftSchedule) so Admin can review/adjust before posting.
+                const batch = db.batch();
+                Object.keys(result.schedule).forEach((dateKey) => {
+                    const assignment = result.schedule[dateKey];
+                    batch.set(db.collection('draftSchedule').doc(dateKey), {
+                        day: Array.isArray(assignment.day) ? assignment.day : [],
+                        night: Array.isArray(assignment.night) ? assignment.night : []
+                    });
+                });
+                await batch.commit();
+
+                alert('AI Balance complete! Click any date on this page to review or adjust before posting.');
+                generateForApprovalSchedule();
+            } catch (error) {
+                console.error('AI Balance error:', error);
+                alert('AI Balance failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🤖 AI Balance Schedule';
+            }
+        }
+
         async function postSchedule() {
             const btn = document.getElementById('postScheduleBtn');
             if (btn.disabled) return; // guard against rapid double-clicks
@@ -3101,7 +3299,19 @@
             }
 
             try {
-                await db.collection('shiftRequests').doc(appState.staffKey).set(appState.proposedShift);
+                // Preserve the ORIGINAL submission timestamp (first time they
+                // ever submitted) so AI balancing can use it for fair,
+                // first-come-first-served tie-breaking — even if they edit
+                // their submission later, this timestamp doesn't change.
+                const existingDoc = await db.collection('shiftRequests').doc(appState.staffKey).get();
+                const submissionData = { ...appState.proposedShift };
+                if (existingDoc.exists && existingDoc.data()._submittedAt) {
+                    submissionData._submittedAt = existingDoc.data()._submittedAt;
+                } else {
+                    submissionData._submittedAt = firebase.firestore.FieldValue.serverTimestamp();
+                }
+
+                await db.collection('shiftRequests').doc(appState.staffKey).set(submissionData);
                 await db.collection('staffDirectory').doc(appState.staffKey).set(
                     { name: appState.user.name, unit: appState.user.unit, shift: appState.user.shift },
                     { merge: true }
@@ -3128,7 +3338,17 @@
             }
 
             try {
-                await db.collection('preferences').doc(appState.staffKey).set(appState.preferences);
+                // Preserve original submission timestamp (see submitProposedShift
+                // for why) — used as the PRIMARY FCFS reference for AI Balance.
+                const existingDoc = await db.collection('preferences').doc(appState.staffKey).get();
+                const submissionData = { ...appState.preferences };
+                if (existingDoc.exists && existingDoc.data()._submittedAt) {
+                    submissionData._submittedAt = existingDoc.data()._submittedAt;
+                } else {
+                    submissionData._submittedAt = firebase.firestore.FieldValue.serverTimestamp();
+                }
+
+                await db.collection('preferences').doc(appState.staffKey).set(submissionData);
                 await db.collection('staffDirectory').doc(appState.staffKey).set(
                     { name: appState.user.name, unit: appState.user.unit, shift: appState.user.shift },
                     { merge: true }
