@@ -1725,8 +1725,8 @@
 
                 // Apply any Admin Pre-Set dates onto both grids right away —
                 // these lock in as "PRE-SET" and are never editable by staff.
-                applyPreSetLocksToGrid('preferenceGrid', 'preferences');
-                applyPreSetLocksToGrid('proposeGrid', 'proposedShift');
+                applyPreSetLocksToGrid('preferenceGrid', 'preferences', 'select-', 'preferences');
+                applyPreSetLocksToGrid('proposeGrid', 'proposedShift', 'propose-select-', 'shiftRequests');
 
                 showHomepage();
             } catch (error) {
@@ -3234,30 +3234,70 @@
 
             grid.innerHTML = html;
             if (appState.user && appState.user.role === 'staff') {
-                applyPreSetLocksToGrid('preferenceGrid', 'preferences');
+                applyPreSetLocksToGrid('preferenceGrid', 'preferences', 'select-', 'preferences');
             }
         }
         // ADMIN-SET "PRE-SET" DATES — locks the given date cells in a staff
         // grid (Preferences or Shift Request) so they show a non-editable
         // "🔒 PRE-SET" badge instead of a dropdown. Forces the underlying
+        // ADMIN-SET "PRE-SET" DATES — locks the given date cells in a staff
+        // grid (Preferences or Shift Request) so they show a non-editable
+        // "🔒 PRE-SET" badge instead of a dropdown. Forces the underlying
         // value to 'on' so it always counts toward the weekly 3-ON-shift
         // limit and is automatically included when the staff hits Submit.
-        function applyPreSetLocksToGrid(gridId, dataKey) {
+        //
+        // CONFLICT CHECK: if a Pre-Set date pushes a week's ON count over 3
+        // (e.g. staff already had 3 ON days submitted before Admin pre-set
+        // another date that same week), Admin's Pre-Set always wins — the
+        // staff's OWN picks for that specific week are cleared back to
+        // blank, saved, and the staff is warned to review/resubmit that week.
+        function applyPreSetLocksToGrid(gridId, dataKey, selectIdPrefix, collectionName) {
             const lockedDates = appState.lockedDates || [];
-            if (lockedDates.length === 0) return;
+            const data = appState[dataKey];
+            if (lockedDates.length === 0 || !data) return;
 
-            lockedDates.forEach(dateKeyLocked => {
-                const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${dateKeyLocked}"]`);
-                if (!cell) return; // this pre-set date isn't in the currently displayed period
+            const startKey = dateToKey(pendingStart);
+            const endKey = dateToKey(pendingEnd);
+            const relevantLocked = lockedDates.filter(d => d >= startKey && d <= endKey);
+            if (relevantLocked.length === 0) return;
 
-                appState[dataKey][dateKeyLocked] = 'on';
+            // Force every Pre-Set date to 'on' in the data model first, so
+            // the week-total check below sees the full picture.
+            relevantLocked.forEach(d => { data[d] = 'on'; });
 
+            // Check each affected week for going over the 3-ON limit.
+            const clearedKeys = [];
+            const affectedWeekLabels = [];
+            const processedWeeks = new Set();
+
+            relevantLocked.forEach(lockedKey => {
+                const weekKeys = getWeekDateKeys(lockedKey);
+                const weekSig = weekKeys[0];
+                if (processedWeeks.has(weekSig)) return;
+                processedWeeks.add(weekSig);
+
+                const onCount = weekKeys.filter(k => data[k] === 'on').length;
+                if (onCount > 3) {
+                    weekKeys.forEach(k => {
+                        if (!lockedDates.includes(k) && data[k] !== undefined) {
+                            delete data[k];
+                            clearedKeys.push(k);
+                        }
+                    });
+                    const startLabel = keyToDate(weekKeys[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const endLabel = keyToDate(weekKeys[6]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    affectedWeekLabels.push(`${startLabel} - ${endLabel}`);
+                }
+            });
+
+            // Render the Pre-Set badge on every locked date cell.
+            relevantLocked.forEach(d => {
+                const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${d}"]`);
+                if (!cell) return;
                 cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
                 cell.classList.add('pre-set-locked');
-
                 const select = cell.querySelector('select');
                 if (select) select.style.display = 'none';
-
                 if (!cell.querySelector('.pre-set-badge')) {
                     const badge = document.createElement('div');
                     badge.className = 'pre-set-badge';
@@ -3265,6 +3305,27 @@
                     cell.appendChild(badge);
                 }
             });
+
+            // Reset the DOM for any cleared (now-blank) cells, in case they
+            // were already showing a value on screen.
+            clearedKeys.forEach(k => {
+                const select = document.getElementById(`${selectIdPrefix}${k}`);
+                if (select) select.value = '';
+                const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${k}"]`);
+                if (cell) cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
+            });
+
+            if (affectedWeekLabels.length > 0) {
+                alert(
+                    `Heads up: Admin pre-set a date that put ${affectedWeekLabels.length > 1 ? 'these weeks' : 'this week'} over the 3-ON-shift limit (${affectedWeekLabels.join(', ')}). ` +
+                    `Your other picks for ${affectedWeekLabels.length > 1 ? 'those weeks were' : 'that week were'} cleared — please review and resubmit.`
+                );
+
+                if (collectionName && appState.staffKey) {
+                    db.collection(collectionName).doc(appState.staffKey).set(data)
+                        .catch(error => console.error(`Error saving reconciled ${collectionName}:`, error));
+                }
+            }
         }
 
         // RESTORE A STAFF MEMBER'S PREVIOUSLY SUBMITTED SELECTIONS ONTO THE
@@ -3356,7 +3417,7 @@
 
             grid.innerHTML = html;
             if (appState.user && appState.user.role === 'staff') {
-                applyPreSetLocksToGrid('proposeGrid', 'proposedShift');
+                applyPreSetLocksToGrid('proposeGrid', 'proposedShift', 'propose-select-', 'shiftRequests');
             }
         }
 
