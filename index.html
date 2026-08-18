@@ -2312,16 +2312,13 @@
                 const checkboxHtml = `<label class="preset-checkbox-wrap" title="Pre-Set this date (Admin-only)">
                         <input type="checkbox" class="preset-checkbox" data-staff="${staffKey}" data-date="${dateKey}" ${isLocked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleLockedDate('${staffKey}', '${dateKey}', this.checked)">
                     </label>`;
-                prefHtml += value
-                    ? `<div class="preference-cell pref-${value}${isLocked ? ' pre-set' : ''}">
+                const cellColorClass = value ? `pref-${value}` : '';
+                const labelText = isLocked ? 'PRE-SET' : (value ? (prefLabels[value] || value) : '— No selection —');
+                const labelStyle = (!isLocked && !value) ? 'color: #999;' : '';
+                prefHtml += `<div class="preference-cell ${cellColorClass}${isLocked ? ' pre-set' : ''}">
                         ${checkboxHtml}
                         <div class="date-label-small">${dateStr}</div>
-                        <div style="font-size: 10px;">${prefLabels[value] || value}</div>
-                    </div>`
-                    : `<div class="preference-cell${isLocked ? ' pre-set' : ''}">
-                        ${checkboxHtml}
-                        <div class="date-label-small">${dateStr}</div>
-                        <div style="font-size: 10px; color: #999;">— No selection —</div>
+                        <div style="font-size: 10px; ${labelStyle}">${labelText}</div>
                     </div>`;
                 currentDate.setDate(currentDate.getDate() + 1);
             }
@@ -2340,16 +2337,13 @@
                 const checkboxHtml = `<label class="preset-checkbox-wrap" title="Pre-Set this date (Admin-only)">
                         <input type="checkbox" class="preset-checkbox" data-staff="${staffKey}" data-date="${dateKey}" ${isLocked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleLockedDate('${staffKey}', '${dateKey}', this.checked)">
                     </label>`;
-                proposeHtml += value
-                    ? `<div class="preference-cell pref-${value}${isLocked ? ' pre-set' : ''}">
+                const cellColorClass = value ? `pref-${value}` : '';
+                const labelText = isLocked ? 'PRE-SET' : (value ? (proposeLabels[value] || value) : '— No selection —');
+                const labelStyle = (!isLocked && !value) ? 'color: #999;' : '';
+                proposeHtml += `<div class="preference-cell ${cellColorClass}${isLocked ? ' pre-set' : ''}">
                         ${checkboxHtml}
                         <div class="date-label-small">${dateStr}</div>
-                        <div style="font-size: 10px;">${proposeLabels[value] || value}</div>
-                    </div>`
-                    : `<div class="preference-cell${isLocked ? ' pre-set' : ''}">
-                        ${checkboxHtml}
-                        <div class="date-label-small">${dateStr}</div>
-                        <div style="font-size: 10px; color: #999;">— No selection —</div>
+                        <div style="font-size: 10px; ${labelStyle}">${labelText}</div>
                     </div>`;
                 currentDate.setDate(currentDate.getDate() + 1);
             }
