@@ -3107,7 +3107,7 @@
                     { merge: true }
                 );
                 showSavedToast();
-                lockSubmittedUI('propose');
+                setTimeout(() => lockSubmittedUI('propose'), 1000);
                 console.log(`${appState.user.name}'s proposed shift:`, appState.proposedShift);
             } catch (error) {
                 console.error('Error saving shift request:', error);
@@ -3134,7 +3134,7 @@
                     { merge: true }
                 );
                 showSavedToast();
-                lockSubmittedUI('preference');
+                setTimeout(() => lockSubmittedUI('preference'), 1000);
                 console.log(`${appState.user.name}'s ${appState.user.shift} shift preferences:`, appState.preferences);
             } catch (error) {
                 console.error('Error saving preferences:', error);
