@@ -1341,21 +1341,23 @@
 
                     <div class="form-group">
                         <label>Staff Name</label>
-                        <input type="text" id="rosterStaffName" placeholder="e.g. Carmen" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                        <input type="text" id="rosterStaffName" placeholder="e.g. Carmen" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onblur="lookupStaffForRosterFix()">
                     </div>
 
                     <div class="form-group">
                         <label>Unit / Department</label>
                         <select id="rosterUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="" selected disabled>-- Select Unit --</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
-                            <option value="Telemetry" selected>Telemetry</option>
+                            <option value="Telemetry">Telemetry</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label>Designated Shift</label>
                         <select id="rosterShift" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="" selected disabled>-- Select Shift --</option>
                             <option value="day">☀️ Day</option>
                             <option value="night">🌙 Night</option>
                         </select>
@@ -2127,6 +2129,29 @@
             }
         }
 
+        // ADMIN: AUTO-FILL UNIT + SHIFT WHEN A STAFF NAME IS ENTERED — looks
+        // up the real registered info for that name in staffDirectory and
+        // pre-fills the dropdowns so Admin doesn't have to guess. Admin can
+        // still change the dropdowns afterward before saving; if no staff
+        // is found under that name, the dropdowns stay on their placeholder.
+        async function lookupStaffForRosterFix() {
+            const name = document.getElementById('rosterStaffName').value.trim();
+            if (!name) return;
+
+            const staffKey = nameToStaffEmail(name).split('@')[0];
+
+            try {
+                const doc = await db.collection('staffDirectory').doc(staffKey).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.unit) document.getElementById('rosterUnit').value = data.unit;
+                    if (data.shift) document.getElementById('rosterShift').value = data.shift;
+                }
+            } catch (error) {
+                console.error('Error looking up staff for Fix Staff Info:', error);
+            }
+        }
+
         async function saveStaffRosterEntry() {
             const name = document.getElementById('rosterStaffName').value.trim();
             const unit = document.getElementById('rosterUnit').value;
@@ -2134,6 +2159,14 @@
 
             if (!name) {
                 alert('Please enter the staff name');
+                return;
+            }
+            if (!unit) {
+                alert('Please select the Unit/Department');
+                return;
+            }
+            if (!shift) {
+                alert('Please select the Designated Shift');
                 return;
             }
 
@@ -2156,6 +2189,8 @@
                 setTimeout(() => saved.classList.add('hidden'), 2000);
 
                 document.getElementById('rosterStaffName').value = '';
+                document.getElementById('rosterUnit').selectedIndex = 0;
+                document.getElementById('rosterShift').selectedIndex = 0;
 
                 populateAdminStaffSelect();
             } catch (error) {
