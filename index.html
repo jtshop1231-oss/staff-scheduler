@@ -814,6 +814,27 @@
             font-weight: 700;
         }
 
+        /* STAFF-FACING PRE-SET LOCK — when Admin pre-sets a specific date
+           for this staff (from the Admin View Staff Schedules page), that
+           date shows here as a locked, non-editable "PRE-SET" badge instead
+           of the normal dropdown. Uses violet (matches the AI Balance/
+           admin-editable accent color elsewhere) so it reads unmistakably
+           as "set by Admin", never confusable with the staff's own ON/OFF/
+           PTO/Available choices. */
+        .preference-cell.pre-set-locked {
+            background: linear-gradient(135deg, #9c6ade 0%, #5e35b1 100%);
+            color: #fff;
+            border-color: #4a148c;
+            font-weight: 800;
+            cursor: not-allowed;
+        }
+
+        .pre-set-badge {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+        }
+
         .date-label-small {
             font-weight: 800;
             margin-bottom: 0px;
@@ -1441,7 +1462,8 @@
             proposeShiftOpen: true,
             selectedAdminUnit: 'All',
             editingSlot: null,
-            minStaffPerShift: 4
+            minStaffPerShift: 4,
+            lockedDates: []
         };
 
         // DATES — these are now DYNAMIC (stored in Firestore settings/config),
@@ -1686,9 +1708,11 @@
                     return;
                 }
                 const { unit, shift } = directoryDoc.data();
+                const lockedDates = Array.isArray(directoryDoc.data().lockedDates) ? directoryDoc.data().lockedDates : [];
 
                 appState.user = { role: 'staff', name, shift, unit };
                 appState.staffKey = staffKey;
+                appState.lockedDates = lockedDates;
 
                 // Restore their previously submitted Preferences + Shift Request
                 // from Firestore, so re-logging in continues where they left off.
@@ -1698,6 +1722,11 @@
                 ]);
                 appState.preferences = prefDoc.exists ? prefDoc.data() : {};
                 appState.proposedShift = shiftReqDoc.exists ? shiftReqDoc.data() : {};
+
+                // Apply any Admin Pre-Set dates onto both grids right away —
+                // these lock in as "PRE-SET" and are never editable by staff.
+                applyPreSetLocksToGrid('preferenceGrid', 'preferences');
+                applyPreSetLocksToGrid('proposeGrid', 'proposedShift');
 
                 showHomepage();
             } catch (error) {
@@ -1749,6 +1778,7 @@
                 appState.staffKey = staffKey;
                 appState.preferences = {};
                 appState.proposedShift = {};
+                appState.lockedDates = [];
 
                 showHomepage();
             } catch (error) {
@@ -2350,6 +2380,7 @@
             appState.preferences = {};
             appState.proposedShift = {};
             appState.editingSlot = null;
+            appState.lockedDates = [];
             document.getElementById('approvedEditCard').classList.remove('card-visible');
             document.getElementById('editOverlayBackdrop').classList.remove('active');
             
@@ -2375,12 +2406,14 @@
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             
             document.querySelectorAll('.preference-cell').forEach(cell => {
-                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
+                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available', 'pre-set-locked');
                 const dateKey = cell.getAttribute('data-key');
                 const select = document.getElementById(`select-${dateKey}`);
-                if (select) select.value = '';
+                if (select) { select.value = ''; select.style.display = ''; }
                 const proposeSelect = document.getElementById(`propose-select-${dateKey}`);
-                if (proposeSelect) proposeSelect.value = '';
+                if (proposeSelect) { proposeSelect.value = ''; proposeSelect.style.display = ''; }
+                const badge = cell.querySelector('.pre-set-badge');
+                if (badge) badge.remove();
             });
         }
 
@@ -3200,13 +3233,47 @@
             }
 
             grid.innerHTML = html;
+            if (appState.user && appState.user.role === 'staff') {
+                applyPreSetLocksToGrid('preferenceGrid', 'preferences');
+            }
+        }
+        // ADMIN-SET "PRE-SET" DATES — locks the given date cells in a staff
+        // grid (Preferences or Shift Request) so they show a non-editable
+        // "🔒 PRE-SET" badge instead of a dropdown. Forces the underlying
+        // value to 'on' so it always counts toward the weekly 3-ON-shift
+        // limit and is automatically included when the staff hits Submit.
+        function applyPreSetLocksToGrid(gridId, dataKey) {
+            const lockedDates = appState.lockedDates || [];
+            if (lockedDates.length === 0) return;
+
+            lockedDates.forEach(dateKeyLocked => {
+                const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${dateKeyLocked}"]`);
+                if (!cell) return; // this pre-set date isn't in the currently displayed period
+
+                appState[dataKey][dateKeyLocked] = 'on';
+
+                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
+                cell.classList.add('pre-set-locked');
+
+                const select = cell.querySelector('select');
+                if (select) select.style.display = 'none';
+
+                if (!cell.querySelector('.pre-set-badge')) {
+                    const badge = document.createElement('div');
+                    badge.className = 'pre-set-badge';
+                    badge.textContent = '🔒 PRE-SET';
+                    cell.appendChild(badge);
+                }
+            });
         }
 
         // RESTORE A STAFF MEMBER'S PREVIOUSLY SUBMITTED SELECTIONS ONTO THE
         // GRID VISUALLY (dropdown value + colored cell) WHEN THEY RE-LOGIN.
         function applyRestoredSelections(sourceKey, selectIdPrefix, gridId) {
             const data = appState[sourceKey] || {};
+            const lockedDates = appState.lockedDates || [];
             Object.keys(data).forEach(dateKey => {
+                if (lockedDates.includes(dateKey)) return; // Admin Pre-Set — locked separately, skip here
                 const value = data[dateKey];
                 const select = document.getElementById(`${selectIdPrefix}${dateKey}`);
                 const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${dateKey}"]`);
@@ -3288,6 +3355,9 @@
             }
 
             grid.innerHTML = html;
+            if (appState.user && appState.user.role === 'staff') {
+                applyPreSetLocksToGrid('proposeGrid', 'proposedShift');
+            }
         }
 
         // HANDLE MY PROPOSE SHIFT DROPDOWN CHANGE
