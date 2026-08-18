@@ -751,6 +751,35 @@
             height: auto;
             font-size: 14px;
             font-weight: 600;
+            position: relative;
+        }
+
+        /* ADMIN-ONLY PRE-SET DATE CHECKBOX — sits in the upper-right corner
+           of a date cell on the Admin "View Staff Schedules" page (both the
+           Preferences and Shift Request tables). Checking it marks that
+           EXACT date as pre-set/locked for this staff member — the AI
+           Balance engine will never move or rotate them on that date. Staff
+           never see this control; it only renders in the admin view. */
+        .preset-checkbox-wrap {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            z-index: 2;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .preset-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #b8860b;
+        }
+
+        .preference-cell.pre-set {
+            outline: 3px dashed #b8860b;
+            outline-offset: -3px;
         }
 
         .preference-cell:hover {
@@ -1332,20 +1361,6 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>🔒 Pre-Set Days (Admin-only — AI will never rotate these; staff never see this control)</label>
-                        <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px;">
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="0" onchange="updateLockedDaysSummary()"> Sun</label>
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="1" onchange="updateLockedDaysSummary()"> Mon</label>
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="2" onchange="updateLockedDaysSummary()"> Tue</label>
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="3" onchange="updateLockedDaysSummary()"> Wed</label>
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="4" onchange="updateLockedDaysSummary()"> Thu</label>
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="5" onchange="updateLockedDaysSummary()"> Fri</label>
-                            <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" class="rosterLockedDay" value="6" onchange="updateLockedDaysSummary()"> Sat</label>
-                        </div>
-                        <p id="rosterLockedDaysSummary" style="font-size: 10px; font-weight: 700; color: #b8860b; margin-top: 4px;">No pre-set days</p>
-                    </div>
-
                     <button class="btn-primary" style="width: 100%;" onclick="saveStaffRosterEntry()">SAVE</button>
                     <p id="rosterSavedText" class="hidden" style="font-size: 11px; color: #00a8a8; font-weight: 700; margin-top: 6px; text-align: center;">✓ Saved</p>
                 </div>
@@ -1373,7 +1388,7 @@
 
                 <div class="preference-section" style="flex: 1;">
                     <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <h2 id="adminProposeTitle" style="font-size: 18px;">Propose Shift</h2>
+                        <h2 id="adminProposeTitle" style="font-size: 18px;">Shift Request</h2>
                         <span id="adminProposeShiftBadge" style="font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: #e8f4f8; color: #2c5f7f;"></span>
                     </div>
                     <div class="preference-info" style="font-size: 13px;" id="adminProposeDateRangeLabel">8/9 - 9/19 (6 weeks)</div>
@@ -2078,24 +2093,44 @@
             document.getElementById('homePage').classList.add('active');
         }
 
-        // ADMIN: CORRECT A STAFF ROSTER ENTRY'S UNIT/SHIFT — a fix-it tool
-        // for mistakes only. Staff normally set this themselves once via
-        // Register; this does NOT create login accounts, only edits the
-        // Unit/Shift on an EXISTING staff record.
-        // Show a plain-English summary of which days are currently checked,
-        // so Admin can tell at a glance which days are Pre-Set for this staff.
-        function updateLockedDaysSummary() {
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const checked = Array.from(document.querySelectorAll('.rosterLockedDay:checked')).map(cb => dayNames[parseInt(cb.value, 10)]);
-            const summary = document.getElementById('rosterLockedDaysSummary');
-            summary.textContent = checked.length ? `🔒 Pre-Set: ${checked.join(', ')}` : 'No pre-set days';
+        // ADMIN: TOGGLE PRE-SET FOR ONE SPECIFIC DATE — called from the small
+        // checkbox in the corner of a date cell on either the Preferences or
+        // Shift Request table (Admin View Staff Schedules page). Both tables
+        // share the SAME underlying lockedDates list for a staff member, so
+        // checking a date in either table locks it in both places at once.
+        // AI Balance will never move/rotate this staff away from a locked date.
+        async function toggleLockedDate(staffKey, dateKey, isChecked) {
+            const staffDirectory = appState.staffDirectoryCache || {};
+            const entry = staffDirectory[staffKey];
+            if (!entry) return;
+
+            let lockedDates = Array.isArray(entry.lockedDates) ? [...entry.lockedDates] : [];
+            if (isChecked) {
+                if (!lockedDates.includes(dateKey)) lockedDates.push(dateKey);
+            } else {
+                lockedDates = lockedDates.filter(d => d !== dateKey);
+            }
+            entry.lockedDates = lockedDates; // update local cache immediately
+
+            // Keep both grids' checkboxes + gold outline in sync right away,
+            // without waiting for a full re-render.
+            document.querySelectorAll(`.preset-checkbox[data-staff="${staffKey}"][data-date="${dateKey}"]`).forEach(cb => {
+                cb.checked = isChecked;
+                cb.closest('.preference-cell').classList.toggle('pre-set', isChecked);
+            });
+
+            try {
+                await db.collection('staffDirectory').doc(staffKey).set({ lockedDates }, { merge: true });
+            } catch (error) {
+                console.error('Error saving pre-set date:', error);
+                alert('Failed to save pre-set date: ' + error.message);
+            }
         }
 
         async function saveStaffRosterEntry() {
             const name = document.getElementById('rosterStaffName').value.trim();
             const unit = document.getElementById('rosterUnit').value;
             const shift = document.getElementById('rosterShift').value;
-            const lockedDays = Array.from(document.querySelectorAll('.rosterLockedDay:checked')).map(cb => parseInt(cb.value, 10));
 
             if (!name) {
                 alert('Please enter the staff name');
@@ -2112,7 +2147,7 @@
                 }
 
                 await db.collection('staffDirectory').doc(staffKey).set(
-                    { name, unit, shift, lockedDays },
+                    { name, unit, shift },
                     { merge: true }
                 );
 
@@ -2121,8 +2156,6 @@
                 setTimeout(() => saved.classList.add('hidden'), 2000);
 
                 document.getElementById('rosterStaffName').value = '';
-                document.querySelectorAll('.rosterLockedDay').forEach(cb => cb.checked = false);
-                updateLockedDaysSummary();
 
                 populateAdminStaffSelect();
             } catch (error) {
@@ -2175,9 +2208,12 @@
             const staffDirectory = appState.staffDirectoryCache || {};
             const staffName = staffDirectory[staffKey] ? staffDirectory[staffKey].name : staffKey;
             const staffShift = staffDirectory[staffKey] ? staffDirectory[staffKey].shift : null;
+            const lockedDates = (staffDirectory[staffKey] && Array.isArray(staffDirectory[staffKey].lockedDates))
+                ? staffDirectory[staffKey].lockedDates
+                : [];
 
             document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
-            document.getElementById('adminProposeTitle').textContent = `${staffName}'s Propose Shift`;
+            document.getElementById('adminProposeTitle').textContent = `${staffName}'s Shift Request`;
 
             const shiftBadgeText = staffShift === 'night' ? '🌙 Night Shift' : staffShift === 'day' ? '☀️ Day Shift' : '';
             document.getElementById('adminPrefShiftBadge').textContent = shiftBadgeText;
@@ -2207,12 +2243,18 @@
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const value = preferences[dateKey];
+                const isLocked = lockedDates.includes(dateKey);
+                const checkboxHtml = `<label class="preset-checkbox-wrap" title="Pre-Set this date (Admin-only)">
+                        <input type="checkbox" class="preset-checkbox" data-staff="${staffKey}" data-date="${dateKey}" ${isLocked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleLockedDate('${staffKey}', '${dateKey}', this.checked)">
+                    </label>`;
                 prefHtml += value
-                    ? `<div class="preference-cell pref-${value}">
+                    ? `<div class="preference-cell pref-${value}${isLocked ? ' pre-set' : ''}">
+                        ${checkboxHtml}
                         <div class="date-label-small">${dateStr}</div>
                         <div style="font-size: 10px;">${prefLabels[value] || value}</div>
                     </div>`
-                    : `<div class="preference-cell">
+                    : `<div class="preference-cell${isLocked ? ' pre-set' : ''}">
+                        ${checkboxHtml}
                         <div class="date-label-small">${dateStr}</div>
                         <div style="font-size: 10px; color: #999;">— No selection —</div>
                     </div>`;
@@ -2229,12 +2271,18 @@
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const value = proposedShift[dateKey];
+                const isLocked = lockedDates.includes(dateKey);
+                const checkboxHtml = `<label class="preset-checkbox-wrap" title="Pre-Set this date (Admin-only)">
+                        <input type="checkbox" class="preset-checkbox" data-staff="${staffKey}" data-date="${dateKey}" ${isLocked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleLockedDate('${staffKey}', '${dateKey}', this.checked)">
+                    </label>`;
                 proposeHtml += value
-                    ? `<div class="preference-cell pref-${value}">
+                    ? `<div class="preference-cell pref-${value}${isLocked ? ' pre-set' : ''}">
+                        ${checkboxHtml}
                         <div class="date-label-small">${dateStr}</div>
                         <div style="font-size: 10px;">${proposeLabels[value] || value}</div>
                     </div>`
-                    : `<div class="preference-cell">
+                    : `<div class="preference-cell${isLocked ? ' pre-set' : ''}">
+                        ${checkboxHtml}
                         <div class="date-label-small">${dateStr}</div>
                         <div style="font-size: 10px; color: #999;">— No selection —</div>
                     </div>`;
@@ -2892,12 +2940,12 @@
                     }
 
                     const staffShift = staffDirectory[key].shift;
-                    const lockedDayNumbers = Array.isArray(staffDirectory[key].lockedDays) ? staffDirectory[key].lockedDays : [];
+                    const lockedDatesForStaff = Array.isArray(staffDirectory[key].lockedDates) ? staffDirectory[key].lockedDates : [];
 
                     return {
                         name: staffDirectory[key].name,
                         shift: staffShift,
-                        lockedWeekdays: lockedDayNumbers.map(d => weekdayNames[d]),
+                        lockedDates: lockedDatesForStaff.filter(d => dateKeys.includes(d)),
                         previousWeekdays: getPreviousWeekdaysFor(staffDirectory[key].name, staffShift),
                         fcfsTimestamp,
                         fcfsSource,
