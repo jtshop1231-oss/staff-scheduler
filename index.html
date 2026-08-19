@@ -657,6 +657,12 @@
             font-size: 11px;
         }
 
+        .shift-over {
+            color: #b8860b;
+            font-weight: 800;
+            font-size: 11px;
+        }
+
         /* PREFERENCE PAGE */
         .preference-container {
             display: flex;
@@ -1961,6 +1967,9 @@
             if (list.length < min) {
                 const shortBy = min - list.length;
                 html += ` <span class="shift-short">(Short by ${shortBy})</span>`;
+            } else if (list.length > min) {
+                const overBy = list.length - min;
+                html += ` <span class="shift-over">(Over by ${overBy})</span>`;
             }
 
             return html;
