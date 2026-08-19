@@ -3211,10 +3211,8 @@
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
                 html += `<div class="preference-cell" data-key="${dateKey}">
-                    <div class="day-name-label">${dayName}</div>
                     <div class="date-label-small">${dateStr}</div>
                     <select class="pref-select" id="select-${dateKey}" onchange="handlePrefChange('${dateKey}', this.value)">
                         <option value="">-- Select --</option>
@@ -3392,10 +3390,8 @@
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()];
 
                 html += `<div class="preference-cell" data-key="${dateKey}">
-                    <div class="day-name-label">${dayName}</div>
                     <div class="date-label-small">${dateStr}</div>
                     <select class="pref-select" id="propose-select-${dateKey}" onchange="handleProposeChange('${dateKey}', this.value)">
                         <option value="">-- Select --</option>
