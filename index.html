@@ -816,23 +816,17 @@
 
         /* STAFF-FACING PRE-SET LOCK — when Admin pre-sets a specific date
            for this staff (from the Admin View Staff Schedules page), that
-           date shows here as a locked, non-editable "PRE-SET" badge instead
-           of the normal dropdown. Uses violet (matches the AI Balance/
-           admin-editable accent color elsewhere) so it reads unmistakably
-           as "set by Admin", never confusable with the staff's own ON/OFF/
-           PTO/Available choices. */
-        .preference-cell.pre-set-locked {
-            background: linear-gradient(135deg, #9c6ade 0%, #5e35b1 100%);
-            color: #fff;
-            border-color: #4a148c;
-            font-weight: 800;
+           date shows here as a locked, non-editable "PRE-SET" cell. This
+           deliberately reuses the SAME .pref-on (teal) + .pre-set (dashed
+           gold outline) styling as the Admin table, so the staff's own
+           page and Admin's view of that staff always look identical — the
+           checkbox is the only thing that's Admin-only. */
+        .preference-cell.pre-set {
             cursor: not-allowed;
         }
 
         .pre-set-badge {
-            font-size: 11px;
-            font-weight: 900;
-            letter-spacing: 0.5px;
+            font-size: 10px;
         }
 
         .date-label-small {
@@ -2153,6 +2147,19 @@
 
             try {
                 await db.collection('staffDirectory').doc(staffKey).set({ lockedDates }, { merge: true });
+
+                // Checking a date pre-sets it as 'on' for real, in BOTH the
+                // staff's Preferences and Shift Request records — not just
+                // the checkbox. This is what makes Admin's own table and the
+                // staff's own page show the exact same thing immediately,
+                // instead of only matching once the staff happens to log in.
+                if (isChecked) {
+                    await Promise.all([
+                        db.collection('preferences').doc(staffKey).set({ [dateKey]: 'on' }, { merge: true }),
+                        db.collection('shiftRequests').doc(staffKey).set({ [dateKey]: 'on' }, { merge: true })
+                    ]);
+                    await renderAdminStaffTables();
+                }
             } catch (error) {
                 console.error('Error saving pre-set date:', error);
                 alert('Failed to save pre-set date: ' + error.message);
@@ -2400,7 +2407,7 @@
             document.querySelectorAll('.shift-btn').forEach(btn => btn.classList.remove('active'));
             
             document.querySelectorAll('.preference-cell').forEach(cell => {
-                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available', 'pre-set-locked');
+                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available', 'pre-set');
                 const dateKey = cell.getAttribute('data-key');
                 const select = document.getElementById(`select-${dateKey}`);
                 if (select) { select.value = ''; select.style.display = ''; }
@@ -3286,14 +3293,14 @@
             relevantLocked.forEach(d => {
                 const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${d}"]`);
                 if (!cell) return;
-                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
-                cell.classList.add('pre-set-locked');
+                cell.classList.remove('pref-off', 'pref-pto', 'pref-available');
+                cell.classList.add('pref-on', 'pre-set');
                 const select = cell.querySelector('select');
                 if (select) select.style.display = 'none';
                 if (!cell.querySelector('.pre-set-badge')) {
                     const badge = document.createElement('div');
                     badge.className = 'pre-set-badge';
-                    badge.textContent = '🔒 PRE-SET';
+                    badge.textContent = 'PRE-SET';
                     cell.appendChild(badge);
                 }
             });
