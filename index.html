@@ -1942,7 +1942,9 @@
             }
 
             const dept = document.getElementById('deptDisplay');
-            dept.textContent = appState.user.role === 'admin' ? 'All Units' : appState.user.unit;
+            dept.textContent = appState.user.role === 'admin'
+                ? (appState.selectedAdminUnit === 'All' ? 'All Units' : appState.selectedAdminUnit)
+                : appState.user.unit;
             dept.classList.remove('hidden');
 
             document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
