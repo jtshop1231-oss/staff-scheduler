@@ -1115,6 +1115,7 @@
                         <div class="form-group">
                             <label>Open Which Unit?</label>
                             <select id="adminLoginUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                                <option value="" selected disabled>-- Select a Unit --</option>
                                 <option value="All">All Units (choose later)</option>
                                 <option value="IMU">IMU</option>
                                 <option value="ICU">ICU</option>
@@ -1651,12 +1652,10 @@
                 adminForm.classList.remove('hidden');
                 staffBtn.classList.add('hidden');
 
-                // Pre-fill with whichever Unit was last managed on this
-                // browser, as a convenient default — Admin can still freely
-                // pick a different one before logging in.
-                const savedUnit = localStorage.getItem('lastManagedUnit');
-                const validUnits = ['IMU', 'ICU', 'Telemetry'];
-                document.getElementById('adminLoginUnit').value = (savedUnit && validUnits.includes(savedUnit)) ? savedUnit : 'All';
+                // Always start on the neutral placeholder — Admin must
+                // actively choose a Unit, never silently pre-filled with
+                // whatever was used last.
+                document.getElementById('adminLoginUnit').selectedIndex = 0;
             }
             document.getElementById('changeRoleLink').classList.remove('hidden');
         }
@@ -1881,9 +1880,14 @@
         async function loginAdmin() {
             const email = document.getElementById('adminUsername').value.trim();
             const password = document.getElementById('adminPassword').value;
+            const chosenUnit = document.getElementById('adminLoginUnit').value;
 
             if (!email || !password) {
                 alert('Please enter your email and password');
+                return;
+            }
+            if (!chosenUnit) {
+                alert('Please select which Unit to open (or "All Units").');
                 return;
             }
 
@@ -1896,7 +1900,6 @@
                 await auth.signInWithEmailAndPassword(email, password);
                 clearLoginAttempts(email);
 
-                const chosenUnit = document.getElementById('adminLoginUnit').value || 'All';
                 appState.user = { role: 'admin', name: 'Admin', unit: 'All Units' };
                 appState.adminLoginUnitChoice = chosenUnit;
                 showHomepage();
@@ -2641,6 +2644,7 @@
             document.getElementById('regConfirmPassword').value = '';
             document.getElementById('adminUsername').value = '';
             document.getElementById('adminPassword').value = '';
+            document.getElementById('adminLoginUnit').selectedIndex = 0;
             document.getElementById('deptDisplay').classList.add('hidden');
             document.getElementById('deptDisplay').textContent = '';
             resetRoleSelection();
