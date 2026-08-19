@@ -1142,7 +1142,7 @@
             <!-- CENTER PANEL: APPROVED SCHEDULE -->
             <div class="center-panel hidden" id="centerPanel">
                 <div class="schedule-section" id="approvedScheduleBox">
-                    <h2>✅ Approved Schedule</h2>
+                    <h2 id="approvedScheduleTitle">✅ Approved Schedule</h2>
                     <div class="schedule-info" id="approvedDateRangeLabel">6/28 - 8/8 (LOCKED)</div>
                     <p id="approvedScheduleUnitPrompt" class="hidden" style="text-align: center; padding: 30px 10px; color: #666; font-weight: 600; font-size: 14px;">Please select a specific Unit from "Managing Unit" to view its Approved Schedule.</p>
 
@@ -1208,7 +1208,7 @@
             </div>
             <div class="center-panel">
                 <div class="schedule-section for-approval-section">
-                    <h2>🟡 Pending Approval Schedule</h2>
+                    <h2 id="pendingScheduleTitle">🟡 Pending Approval Schedule</h2>
                     <div class="schedule-info" id="pendingDateRangeLabel">8/9 - 9/19 (LIVE - staff submitting)</div>
 
                     <table class="schedule-table" id="forApprovalSchedule">
@@ -2577,16 +2577,19 @@
             const promptEl = document.getElementById('approvedScheduleUnitPrompt');
             const infoEl = document.getElementById('approvedDateRangeLabel');
             const tableEl = document.getElementById('approvedSchedule');
+            const titleEl = document.getElementById('approvedScheduleTitle');
 
             if (!activeUnit) {
                 // Admin is on "All Units" — there's no single Unit's
                 // schedule to show (each Unit runs its own date range now),
                 // so prompt them to pick one instead of showing stale/blank data.
+                if (titleEl) titleEl.textContent = '✅ Approved Schedule';
                 if (promptEl) promptEl.classList.remove('hidden');
                 if (infoEl) infoEl.classList.add('hidden');
                 if (tableEl) tableEl.classList.add('hidden');
                 return;
             }
+            if (titleEl) titleEl.textContent = `✅ ${activeUnit} Approved Schedule`;
             if (promptEl) promptEl.classList.add('hidden');
             if (infoEl) infoEl.classList.remove('hidden');
             if (tableEl) tableEl.classList.remove('hidden');
@@ -2807,6 +2810,9 @@
                 body.innerHTML = '<tr><td colspan="7" style="padding:20px;">Please select a specific Unit from "Managing Unit" on the Homepage first.</td></tr>';
                 return;
             }
+
+            const pendingTitleEl = document.getElementById('pendingScheduleTitle');
+            if (pendingTitleEl) pendingTitleEl.textContent = `🟡 ${unit} Pending Approval Schedule`;
 
             let directorySnapshot, shiftReqSnapshot, draftSnapshot;
             try {
