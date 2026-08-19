@@ -299,6 +299,16 @@
             background: #d4e8f0;
         }
 
+        .btn-danger {
+            background: #fff5f0;
+            color: #d84315;
+            border: 1.5px solid #d84315;
+        }
+
+        .btn-danger:hover {
+            background: #ffe0d4;
+        }
+
         /* APPROVED SCHEDULE */
         .schedule-section {
             background: #f5f9fc;
@@ -1420,6 +1430,9 @@
 
                     <button class="btn-primary" style="width: 100%;" onclick="saveStaffRosterEntry()">SAVE</button>
                     <p id="rosterSavedText" class="hidden" style="font-size: 11px; color: #00a8a8; font-weight: 700; margin-top: 6px; text-align: center;">✓ Saved</p>
+
+                    <button class="btn-danger" style="width: 100%; margin-top: 10px;" onclick="deleteStaffRecord()">🗑️ DELETE STAFF RECORD</button>
+                    <p style="font-size: 10px; color: #999; margin-top: 3px;">Permanently removes their directory entry, Preferences, and Shift Request. Cannot be undone — save/print their info first if needed.</p>
                 </div>
             </div>
 
@@ -2397,6 +2410,66 @@
             } catch (error) {
                 console.error('Error saving staff roster entry:', error);
                 alert('Failed to save: ' + error.message);
+            }
+        }
+
+        // ADMIN: PERMANENTLY DELETE A STAFF RECORD — removes their
+        // directory entry, submitted Preferences, and submitted Shift
+        // Request. Works regardless of Active/Inactive status (Admin's
+        // call — e.g. someone who simply stopped showing up). Does NOT
+        // touch their name inside past Approved Schedules, since that is
+        // historical record and should stay accurate to what actually
+        // happened. Cannot be undone, so this asks for confirmation twice.
+        async function deleteStaffRecord() {
+            const name = document.getElementById('rosterStaffName').value.trim();
+            if (!name) {
+                alert('Please enter the staff name to delete');
+                return;
+            }
+
+            const staffKey = nameToStaffEmail(name).split('@')[0];
+
+            try {
+                const existing = await db.collection('staffDirectory').doc(staffKey).get();
+                if (!existing.exists) {
+                    alert('No existing record found for this name.');
+                    return;
+                }
+                const data = existing.data();
+
+                const firstConfirm = confirm(
+                    `Permanently delete ${data.name}'s staff record (${data.unit})?\n\n` +
+                    'This removes:\n' +
+                    '- Their staff directory entry (Unit, Role, Shift)\n' +
+                    '- Their submitted Preferences\n' +
+                    '- Their submitted Shift Request\n\n' +
+                    'This will NOT remove their name from past Approved Schedules — that stays as accurate history.\n\n' +
+                    'This CANNOT be undone. Save or print their info first if you want to keep a copy.\n\n' +
+                    'Continue?'
+                );
+                if (!firstConfirm) return;
+
+                const secondConfirm = confirm(`Are you sure? This is your last chance to cancel — ${data.name}'s record will be permanently deleted.`);
+                if (!secondConfirm) return;
+
+                const batch = db.batch();
+                batch.delete(db.collection('staffDirectory').doc(staffKey));
+                batch.delete(db.collection('preferences').doc(staffKey));
+                batch.delete(db.collection('shiftRequests').doc(staffKey));
+                await batch.commit();
+
+                alert(`${data.name}'s record has been deleted.`);
+
+                document.getElementById('rosterStaffName').value = '';
+                document.getElementById('rosterUnit').selectedIndex = 0;
+                document.getElementById('rosterRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
+                document.getElementById('rosterShift').selectedIndex = 0;
+                document.getElementById('rosterActive').checked = true;
+
+                populateAdminStaffSelect();
+            } catch (error) {
+                console.error('Error deleting staff record:', error);
+                alert('Failed to delete: ' + error.message);
             }
         }
 
