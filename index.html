@@ -1144,6 +1144,7 @@
                 <div class="schedule-section" id="approvedScheduleBox">
                     <h2>✅ Approved Schedule</h2>
                     <div class="schedule-info" id="approvedDateRangeLabel">6/28 - 8/8 (LOCKED)</div>
+                    <p id="approvedScheduleUnitPrompt" class="hidden" style="text-align: center; padding: 30px 10px; color: #666; font-weight: 600; font-size: 14px;">Please select a specific Unit from "Managing Unit" to view its Approved Schedule.</p>
 
                     <table class="schedule-table" id="approvedSchedule">
                         <thead>
@@ -1845,35 +1846,46 @@
 
             document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
 
-            startApprovedScheduleSync();
-            startSettingsSync();
+            startApprovedScheduleSync(getActiveApprovedUnit());
+            startSettingsSync(getActiveApprovedUnit());
 
             document.getElementById('centerPanel').classList.remove('hidden');
             document.getElementById('mainContainer').classList.remove('welcome-only');
         }
 
         // ============================================================
-        // SETTINGS SYNC — proposeShiftOpen (Shift Request window) and
-        // minStaffPerShift now live in Firestore (settings/config), shared
-        // by everyone in real time, instead of being local per-session.
+        // SETTINGS SYNC — proposeShiftOpen (Shift Request window),
+        // minStaffPerShift, and the approved/pending date ranges are now
+        // stored PER UNIT in Firestore (settings/{unit} — e.g. settings/
+        // Telemetry, settings/IMU, settings/ICU), instead of one shared
+        // settings/config doc. This is what keeps IMU's minimum staff or
+        // date range from ever colliding with Telemetry's or ICU's.
         // ============================================================
         let settingsUnsubscribe = null;
+        let settingsUnsubscribeUnit = null;
 
-        function startSettingsSync() {
-            if (settingsUnsubscribe) return; // already listening
+        function startSettingsSync(unit) {
+            if (!unit) {
+                stopSettingsSync();
+                return;
+            }
+            if (settingsUnsubscribeUnit === unit && settingsUnsubscribe) return; // already listening to this unit
 
-            settingsUnsubscribe = db.collection('settings').doc('config').onSnapshot((doc) => {
+            stopSettingsSync();
+            settingsUnsubscribeUnit = unit;
+
+            settingsUnsubscribe = db.collection('settings').doc(unit).onSnapshot((doc) => {
                 if (!doc.exists) {
-                    // First-ever run: seed default settings using the current
-                    // fallback date range defined above.
-                    db.collection('settings').doc('config').set({
+                    // First-ever run for this unit: seed default settings
+                    // using the current fallback date range defined above.
+                    db.collection('settings').doc(unit).set({
                         proposeShiftOpen: true,
                         minStaffPerShift: 4,
                         approvedStart: dateToKey(approvedStart),
                         approvedEnd: dateToKey(approvedEnd),
                         pendingStart: dateToKey(pendingStart),
                         pendingEnd: dateToKey(pendingEnd)
-                    }).catch((error) => console.error('Error seeding settings:', error));
+                    }).catch((error) => console.error(`Error seeding settings for ${unit}:`, error));
                     return;
                 }
 
@@ -1904,8 +1916,16 @@
 
                 applySettingsToUI();
             }, (error) => {
-                console.error('Settings sync error:', error);
+                console.error(`Settings sync error (${unit}):`, error);
             });
+        }
+
+        function stopSettingsSync() {
+            if (settingsUnsubscribe) {
+                settingsUnsubscribe();
+                settingsUnsubscribe = null;
+            }
+            settingsUnsubscribeUnit = null;
         }
 
         // APPLY THE CURRENT SETTINGS TO WHATEVER UI ELEMENTS ARE VISIBLE RIGHT NOW
@@ -1934,20 +1954,26 @@
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
             document.getElementById('minStaffGroup').classList.toggle('hidden', unit === 'All');
-            renderApprovedSchedule();
+
+            const activeUnit = getActiveApprovedUnit();
+            startSettingsSync(activeUnit);
+            startApprovedScheduleSync(activeUnit);
         }
 
         // ADMIN: UPDATE MINIMUM REQUIRED STAFF PER SHIFT (used to flag short-staffed shifts in red)
         function updateMinStaffPerShift() {
+            const unit = getActiveApprovedUnit();
+            if (!unit) return;
+
             const input = document.getElementById('minStaffInput');
             const val = parseInt(input.value, 10);
             const minStaffPerShift = (isNaN(val) || val < 1) ? 1 : val;
             input.value = minStaffPerShift;
 
-            db.collection('settings').doc('config').set(
+            db.collection('settings').doc(unit).set(
                 { minStaffPerShift },
                 { merge: true }
-            ).catch((error) => console.error('Error saving minStaffPerShift:', error));
+            ).catch((error) => console.error(`Error saving minStaffPerShift for ${unit}:`, error));
             // appState.minStaffPerShift + re-render happen automatically via
             // the settings real-time listener (startSettingsSync).
         }
@@ -1977,11 +2003,14 @@
 
         // ADMIN: TOGGLE SHIFT REQUEST WINDOW OPEN/CLOSED
         function toggleShiftRequestWindow() {
+            const unit = getActiveApprovedUnit();
+            if (!unit) return;
+
             const newValue = !appState.proposeShiftOpen;
-            db.collection('settings').doc('config').set(
+            db.collection('settings').doc(unit).set(
                 { proposeShiftOpen: newValue },
                 { merge: true }
-            ).catch((error) => console.error('Error saving proposeShiftOpen:', error));
+            ).catch((error) => console.error(`Error saving proposeShiftOpen for ${unit}:`, error));
             // appState.proposeShiftOpen + UI update happen automatically via
             // the settings real-time listener (startSettingsSync).
         }
@@ -2147,6 +2176,10 @@
 
         // GO TO ADMIN: FOR APPROVAL SCHEDULE
         function goToForApproval() {
+            if (!appState.selectedAdminUnit || appState.selectedAdminUnit === 'All') {
+                alert('Please select a specific Managing Unit first.');
+                return;
+            }
             if (!appState.proposeShiftOpen) {
                 alert('Not open yet. Staff submissions have not started.');
                 return;
@@ -2416,14 +2449,8 @@
         function logout() {
             auth.signOut().catch((error) => console.error('Sign out error:', error));
 
-            if (approvedScheduleUnsubscribe) {
-                approvedScheduleUnsubscribe();
-                approvedScheduleUnsubscribe = null;
-            }
-            if (settingsUnsubscribe) {
-                settingsUnsubscribe();
-                settingsUnsubscribe = null;
-            }
+            stopApprovedScheduleSync();
+            stopSettingsSync();
 
             appState.user = null;
             appState.selectedRegShift = null;
@@ -2477,52 +2504,93 @@
         }
 
         // ============================================================
-        // APPROVED SCHEDULE — now synced with Firestore (collection:
-        // "approvedSchedule", one document per date, doc ID = dateKey).
-        // Everyone who is logged in (staff or admin) can READ this in
-        // real time. Only Admin can WRITE to it (enforced by Security
-        // Rules on the Firebase side, not just this client code).
+        // APPROVED SCHEDULE — synced with Firestore (collection:
+        // "approvedSchedule", one document PER UNIT PER DATE, doc ID =
+        // "{unit}_{dateKey}", each document also carries unit + date
+        // fields so it can be queried with .where('unit','==',unit)).
+        // This keeps every Unit's Approved Schedule completely separate —
+        // posting IMU's schedule can never overwrite Telemetry's or
+        // ICU's, even for the exact same calendar dates.
         // ============================================================
         let approvedScheduleUnsubscribe = null;
+        let approvedScheduleUnsubscribeUnit = null;
 
-        function startApprovedScheduleSync() {
-            if (approvedScheduleUnsubscribe) return; // already listening, don't double-subscribe
+        function startApprovedScheduleSync(unit) {
+            if (!unit) {
+                stopApprovedScheduleSync();
+                appState.approvedSchedule = {};
+                renderApprovedSchedule();
+                return;
+            }
+            if (approvedScheduleUnsubscribeUnit === unit && approvedScheduleUnsubscribe) return; // already listening to this unit
 
-            approvedScheduleUnsubscribe = db.collection('approvedSchedule').onSnapshot((snapshot) => {
+            stopApprovedScheduleSync();
+            approvedScheduleUnsubscribeUnit = unit;
+
+            approvedScheduleUnsubscribe = db.collection('approvedSchedule').where('unit', '==', unit).onSnapshot((snapshot) => {
                 if (snapshot.empty) {
-                    // First-ever run: seed blank documents for the whole date range.
-                    seedBlankApprovedSchedule();
+                    // First-ever run for this unit: seed blank documents for
+                    // the whole date range.
+                    seedBlankApprovedSchedule(unit);
                     return;
                 }
                 const schedule = {};
                 snapshot.forEach((doc) => {
-                    schedule[doc.id] = doc.data();
+                    const data = doc.data();
+                    schedule[data.date] = data;
                 });
                 appState.approvedSchedule = schedule;
                 renderApprovedSchedule();
             }, (error) => {
-                console.error('Approved schedule sync error:', error);
+                console.error(`Approved schedule sync error (${unit}):`, error);
             });
         }
 
+        function stopApprovedScheduleSync() {
+            if (approvedScheduleUnsubscribe) {
+                approvedScheduleUnsubscribe();
+                approvedScheduleUnsubscribe = null;
+            }
+            approvedScheduleUnsubscribeUnit = null;
+        }
+
         // ONE-TIME SEED: creates a blank day/night document for every date
-        // in the approved range, only if the collection is completely empty.
-        function seedBlankApprovedSchedule() {
+        // in the approved range for THIS UNIT ONLY, if that unit has no
+        // Approved Schedule documents yet.
+        function seedBlankApprovedSchedule(unit) {
             const batch = db.batch();
             let currentDate = new Date(approvedStart);
 
             while (currentDate <= approvedEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
-                const ref = db.collection('approvedSchedule').doc(dateKey);
-                batch.set(ref, { day: [], night: [] });
+                const ref = db.collection('approvedSchedule').doc(`${unit}_${dateKey}`);
+                batch.set(ref, { unit, date: dateKey, day: [], night: [] });
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
-            batch.commit().catch((error) => console.error('Error seeding approved schedule:', error));
+            batch.commit().catch((error) => console.error(`Error seeding approved schedule for ${unit}:`, error));
         }
 
         // RENDER APPROVED SCHEDULE
         function renderApprovedSchedule() {
+            const activeUnit = getActiveApprovedUnit();
+            const promptEl = document.getElementById('approvedScheduleUnitPrompt');
+            const infoEl = document.getElementById('approvedDateRangeLabel');
+            const tableEl = document.getElementById('approvedSchedule');
+
+            if (!activeUnit) {
+                // Admin is on "All Units" — there's no single Unit's
+                // schedule to show (each Unit runs its own date range now),
+                // so prompt them to pick one instead of showing stale/blank data.
+                if (promptEl) promptEl.classList.remove('hidden');
+                if (infoEl) infoEl.classList.add('hidden');
+                if (tableEl) tableEl.classList.add('hidden');
+                return;
+            }
+            if (promptEl) promptEl.classList.add('hidden');
+            if (infoEl) infoEl.classList.remove('hidden');
+            if (tableEl) tableEl.classList.remove('hidden');
+
             const header = document.getElementById('scheduleHeader');
             const body = document.getElementById('scheduleBody');
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
@@ -2542,7 +2610,7 @@
                 }
 
                 const dateKey = currentDate.toISOString().split('T')[0];
-                const assignment = appState.approvedSchedule[dateKey];
+                const assignment = appState.approvedSchedule[dateKey] || { day: [], night: [] };
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
                 html += `<td onclick="openApprovedEditCard('${dateKey}', '${dateStr}')">
@@ -2578,6 +2646,7 @@
 
             appState.editingSlot = {
                 dateKey,
+                unit: getActiveApprovedUnit(),
                 day: [...assignment.day],
                 night: [...assignment.night],
                 target: 'approved'
@@ -2609,6 +2678,7 @@
 
             appState.editingSlot = {
                 dateKey,
+                unit: appState.selectedAdminUnit,
                 day: [...assignment.day],
                 night: [...assignment.night],
                 target: 'draft'
@@ -2695,11 +2765,14 @@
         // manually refresh that page's data since it has no live listener.
         function submitApprovedEdit() {
             const slot = appState.editingSlot;
-            if (!slot) return;
+            if (!slot || !slot.unit) return;
 
             const collectionName = slot.target === 'draft' ? 'draftSchedule' : 'approvedSchedule';
+            const docId = `${slot.unit}_${slot.dateKey}`;
 
-            db.collection(collectionName).doc(slot.dateKey).set({
+            db.collection(collectionName).doc(docId).set({
+                unit: slot.unit,
+                date: slot.dateKey,
                 day: [...slot.day],
                 night: [...slot.night]
             }).then(() => {
@@ -2728,14 +2801,19 @@
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
             body.innerHTML = '<tr><td colspan="7" style="padding:20px;">Loading live submissions...</td></tr>';
 
-            const unit = appState.selectedAdminUnit || 'All';
+            const unit = appState.selectedAdminUnit;
+
+            if (!unit || unit === 'All') {
+                body.innerHTML = '<tr><td colspan="7" style="padding:20px;">Please select a specific Unit from "Managing Unit" on the Homepage first.</td></tr>';
+                return;
+            }
 
             let directorySnapshot, shiftReqSnapshot, draftSnapshot;
             try {
                 [directorySnapshot, shiftReqSnapshot, draftSnapshot] = await Promise.all([
                     db.collection('staffDirectory').get(),
                     db.collection('shiftRequests').get(),
-                    db.collection('draftSchedule').get()
+                    db.collection('draftSchedule').where('unit', '==', unit).get()
                 ]);
             } catch (error) {
                 console.error('Error loading Pending Approval data:', error);
@@ -2750,10 +2828,10 @@
             shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
 
             const savedDrafts = {};
-            draftSnapshot.forEach((doc) => { savedDrafts[doc.id] = doc.data(); });
+            draftSnapshot.forEach((doc) => { savedDrafts[doc.data().date] = doc.data(); });
 
             const staffKeysInUnit = Object.keys(staffDirectory).filter(
-                key => unit === 'All' || staffDirectory[key].unit === unit
+                key => staffDirectory[key].unit === unit
             );
 
             // Cache used by openDraftEditCard — merges any Admin-saved draft
@@ -2966,7 +3044,7 @@
                     db.collection('staffDirectory').get(),
                     db.collection('shiftRequests').get(),
                     db.collection('preferences').get(),
-                    db.collection('approvedSchedule').get()
+                    db.collection('approvedSchedule').where('unit', '==', unit).get()
                 ]);
 
                 const staffDirectory = {};
@@ -2978,12 +3056,13 @@
                 const allPreferences = {};
                 prefSnapshot.forEach((doc) => { allPreferences[doc.id] = doc.data(); });
 
-                // The CURRENT live Approved Schedule — this is "last cycle"
-                // from the perspective of the period we're about to balance.
-                // Used purely to figure out which weekday(s) each staff
-                // worked last time, so AI can rotate them forward.
+                // The CURRENT live Approved Schedule for THIS UNIT — this is
+                // "last cycle" from the perspective of the period we're
+                // about to balance. Used purely to figure out which
+                // weekday(s) each staff worked last time, so AI can rotate
+                // them forward.
                 const currentApproved = {};
-                currentApprovedSnapshot.forEach((doc) => { currentApproved[doc.id] = doc.data(); });
+                currentApprovedSnapshot.forEach((doc) => { currentApproved[doc.data().date] = doc.data(); });
 
                 const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit);
 
@@ -3093,7 +3172,9 @@
                 const batch = db.batch();
                 Object.keys(result.schedule).forEach((dateKey) => {
                     const assignment = result.schedule[dateKey];
-                    batch.set(db.collection('draftSchedule').doc(dateKey), {
+                    batch.set(db.collection('draftSchedule').doc(`${unit}_${dateKey}`), {
+                        unit,
+                        date: dateKey,
                         day: Array.isArray(assignment.day) ? assignment.day : [],
                         night: Array.isArray(assignment.night) ? assignment.night : []
                     });
@@ -3115,8 +3196,17 @@
             const btn = document.getElementById('postScheduleBtn');
             if (btn.disabled) return; // guard against rapid double-clicks
 
+            // POST SCHEDULE only affects the currently selected Managing
+            // Unit — it must NOT mix staff from different units together
+            // in the same Approved Schedule. Require a specific unit.
+            const unit = appState.selectedAdminUnit;
+            if (!unit || unit === 'All') {
+                alert('Please select a specific Managing Unit (not "All Units") before posting a schedule.');
+                return;
+            }
+
             const confirmed = confirm(
-                'Post the Assigned schedule (shown on this page) as the new Approved Schedule?\n\n' +
+                `Post the Assigned schedule (shown on this page) as the new Approved Schedule for ${unit}?\n\n` +
                 'This will:\n' +
                 '- Replace the current Approved Schedule with the Assigned staff shown for each date\n' +
                 '- Open a new 6-week Shift Request window after it\n' +
@@ -3131,12 +3221,13 @@
             try {
                 // 1. Pull every staff member's directory entry + submitted
                 //    Shift Request (for the auto-computed fallback), plus
-                //    any dates Admin already saved a draft for.
+                //    any dates Admin already saved a draft for — draft and
+                //    old-approved queries are both scoped to THIS UNIT only.
                 const [directorySnapshot, shiftReqSnapshot, draftSnapshot, oldApprovedSnapshot] = await Promise.all([
                     db.collection('staffDirectory').get(),
                     db.collection('shiftRequests').get(),
-                    db.collection('draftSchedule').get(),
-                    db.collection('approvedSchedule').get()
+                    db.collection('draftSchedule').where('unit', '==', unit).get(),
+                    db.collection('approvedSchedule').where('unit', '==', unit).get()
                 ]);
 
                 const staffDirectory = {};
@@ -3146,18 +3237,7 @@
                 shiftReqSnapshot.forEach((doc) => { allShiftRequests[doc.id] = doc.data(); });
 
                 const savedDrafts = {};
-                draftSnapshot.forEach((doc) => { savedDrafts[doc.id] = doc.data(); });
-
-                // POST SCHEDULE only affects the currently selected Managing
-                // Unit — it must NOT mix staff from different units together
-                // in the same Approved Schedule. Require a specific unit.
-                const unit = appState.selectedAdminUnit;
-                if (!unit || unit === 'All') {
-                    alert('Please select a specific Managing Unit (not "All Units") before posting a schedule.');
-                    btn.disabled = false;
-                    btn.textContent = '📤 POST SCHEDULE';
-                    return;
-                }
+                draftSnapshot.forEach((doc) => { savedDrafts[doc.data().date] = doc.data(); });
 
                 const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit);
 
@@ -3177,7 +3257,7 @@
 
                 const batch = db.batch();
 
-                // Delete every old Approved Schedule document
+                // Delete every old Approved Schedule document FOR THIS UNIT ONLY
                 oldApprovedSnapshot.forEach((doc) => {
                     batch.delete(db.collection('approvedSchedule').doc(doc.id));
                 });
@@ -3205,11 +3285,16 @@
                         assignment = { day: dayStaff, night: nightStaff };
                     }
 
-                    batch.set(db.collection('approvedSchedule').doc(key), assignment);
+                    batch.set(db.collection('approvedSchedule').doc(`${unit}_${key}`), {
+                        unit,
+                        date: key,
+                        day: assignment.day,
+                        night: assignment.night
+                    });
                     cursor.setDate(cursor.getDate() + 1);
                 }
 
-                // Clear the working draft (fresh scratchpad for next cycle)
+                // Clear the working draft (fresh scratchpad for next cycle) — FOR THIS UNIT ONLY
                 draftSnapshot.forEach((doc) => {
                     batch.delete(db.collection('draftSchedule').doc(doc.id));
                 });
@@ -3225,7 +3310,8 @@
 
                 // 2. Compute the new date ranges: the just-approved period
                 //    becomes the new Approved range; a fresh 6-week Pending
-                //    window opens right after it.
+                //    window opens right after it. Saved to THIS UNIT's own
+                //    settings doc only — other units' cycles are untouched.
                 const cycleDays = Math.round((pendingEnd - pendingStart) / (1000 * 60 * 60 * 24)) + 1;
 
                 const newApprovedStart = new Date(pendingStart);
@@ -3236,7 +3322,7 @@
                 const newPendingEnd = new Date(newPendingStart);
                 newPendingEnd.setDate(newPendingEnd.getDate() + cycleDays - 1);
 
-                batch.set(db.collection('settings').doc('config'), {
+                batch.set(db.collection('settings').doc(unit), {
                     approvedStart: dateToKey(newApprovedStart),
                     approvedEnd: dateToKey(newApprovedEnd),
                     pendingStart: dateToKey(newPendingStart),
