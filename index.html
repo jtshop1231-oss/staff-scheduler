@@ -1994,7 +1994,7 @@
         }
 
         // GO TO PREFERENCES
-        function goToPreferences() {
+        async function goToPreferences() {
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('preferencePage').classList.add('active');
             document.getElementById('prefUserName').textContent = `Hello, ${appState.user.name}!`;
@@ -2003,6 +2003,24 @@
             const title = appState.user.shift === 'day' ? 'Day Shift Preferences' : 'Night Shift Preferences';
             document.getElementById('preferenceTitle').textContent = title;
 
+            // Always pull the latest lockedDates + Preferences fresh from
+            // Firestore before rendering — never trust the login-time cache
+            // here, since Admin may have changed a Pre-Set since this staff
+            // logged in, and a stale local copy would show the wrong thing.
+            try {
+                const [directoryDoc, prefDoc] = await Promise.all([
+                    db.collection('staffDirectory').doc(appState.staffKey).get(),
+                    db.collection('preferences').doc(appState.staffKey).get()
+                ]);
+                appState.lockedDates = (directoryDoc.exists && Array.isArray(directoryDoc.data().lockedDates)) ? directoryDoc.data().lockedDates : [];
+                appState.preferences = prefDoc.exists ? prefDoc.data() : {};
+            } catch (error) {
+                console.error('Error refreshing preferences before render:', error);
+            }
+
+            // Reset the grid to a clean slate before reapplying — clears any
+            // leftover PRE-SET badges/hidden selects/colors from a prior visit.
+            generatePreferenceGrid();
             applyRestoredSelections('preferences', 'select-', 'preferenceGrid');
 
             // If they already have saved Preferences, show the page as
@@ -2015,7 +2033,7 @@
         }
 
         // GO TO MY PROPOSE SHIFT
-        function goToProposeShift() {
+        async function goToProposeShift() {
             if (!appState.proposeShiftOpen) {
                 alert('Not yet open. Admin has not started the scheduling window yet.');
                 return;
@@ -2025,6 +2043,21 @@
             document.getElementById('proposeUserName').textContent = `Hello, ${appState.user.name}!`;
             document.getElementById('proposeUserShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
 
+            // Always pull the latest lockedDates + Shift Request fresh from
+            // Firestore before rendering — same reasoning as Preferences.
+            try {
+                const [directoryDoc, shiftReqDoc] = await Promise.all([
+                    db.collection('staffDirectory').doc(appState.staffKey).get(),
+                    db.collection('shiftRequests').doc(appState.staffKey).get()
+                ]);
+                appState.lockedDates = (directoryDoc.exists && Array.isArray(directoryDoc.data().lockedDates)) ? directoryDoc.data().lockedDates : [];
+                appState.proposedShift = shiftReqDoc.exists ? shiftReqDoc.data() : {};
+            } catch (error) {
+                console.error('Error refreshing shift request before render:', error);
+            }
+
+            // Reset the grid to a clean slate before reapplying.
+            generateProposeGrid();
             applyRestoredSelections('proposedShift', 'propose-select-', 'proposeGrid');
 
             // Same idea for Shift Request: default to locked/SUBMITTED if
@@ -2139,28 +2172,34 @@
             }
             entry.lockedDates = lockedDates; // update local cache immediately
 
-            // Keep both grids' checkboxes + gold outline in sync right away,
-            // without waiting for a full re-render.
-            document.querySelectorAll(`.preset-checkbox[data-staff="${staffKey}"][data-date="${dateKey}"]`).forEach(cb => {
-                cb.checked = isChecked;
-                cb.closest('.preference-cell').classList.toggle('pre-set', isChecked);
-            });
-
             try {
                 await db.collection('staffDirectory').doc(staffKey).set({ lockedDates }, { merge: true });
 
-                // Checking a date pre-sets it as 'on' for real, in BOTH the
-                // staff's Preferences and Shift Request records — not just
-                // the checkbox. This is what makes Admin's own table and the
-                // staff's own page show the exact same thing immediately,
-                // instead of only matching once the staff happens to log in.
                 if (isChecked) {
+                    // Checking a date pre-sets it as 'on' for real, in BOTH
+                    // the staff's Preferences and Shift Request records —
+                    // not just the checkbox. This is what makes Admin's own
+                    // table and the staff's own page show the exact same
+                    // thing immediately, instead of only matching once the
+                    // staff happens to log in.
                     await Promise.all([
                         db.collection('preferences').doc(staffKey).set({ [dateKey]: 'on' }, { merge: true }),
                         db.collection('shiftRequests').doc(staffKey).set({ [dateKey]: 'on' }, { merge: true })
                     ]);
-                    await renderAdminStaffTables();
+                } else {
+                    // Un-checking fully clears the date back to blank/"No
+                    // selection" in both records — removing a Pre-Set means
+                    // removing it completely, not leaving the ON behind.
+                    await Promise.all([
+                        db.collection('preferences').doc(staffKey).set({ [dateKey]: firebase.firestore.FieldValue.delete() }, { merge: true }),
+                        db.collection('shiftRequests').doc(staffKey).set({ [dateKey]: firebase.firestore.FieldValue.delete() }, { merge: true })
+                    ]);
                 }
+
+                // Re-render both admin tables from fresh Firestore data so
+                // the PRE-SET label/color always matches the real saved
+                // state — never left stale from a partial DOM toggle.
+                await renderAdminStaffTables();
             } catch (error) {
                 console.error('Error saving pre-set date:', error);
                 alert('Failed to save pre-set date: ' + error.message);
@@ -3321,8 +3360,10 @@
                     `Your other picks for ${affectedWeekLabels.length > 1 ? 'those weeks were' : 'that week were'} cleared — please review and resubmit.`
                 );
 
-                if (collectionName && appState.staffKey) {
-                    db.collection(collectionName).doc(appState.staffKey).set(data)
+                if (collectionName && appState.staffKey && clearedKeys.length > 0) {
+                    const fieldDeletes = {};
+                    clearedKeys.forEach(k => { fieldDeletes[k] = firebase.firestore.FieldValue.delete(); });
+                    db.collection(collectionName).doc(appState.staffKey).set(fieldDeletes, { merge: true })
                         .catch(error => console.error(`Error saving reconciled ${collectionName}:`, error));
                 }
             }
