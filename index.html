@@ -1044,11 +1044,18 @@
 
                         <div class="form-group">
                             <label>Department / Unit</label>
-                            <select id="regUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <select id="regUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateRoleOptions('regUnit', 'regRole')">
                                 <option value="" selected disabled>Select your Unit/Department</option>
                                 <option value="IMU">IMU</option>
                                 <option value="ICU">ICU</option>
                                 <option value="Telemetry">Telemetry</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Role / Position</label>
+                            <select id="regRole" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                                <option value="" selected disabled>-- Select Unit first --</option>
                             </select>
                         </div>
 
@@ -1360,7 +1367,7 @@
                      never accidentally reassign someone's shift afterward. -->
                 <div class="card">
                     <h2>🛠️ Fix Staff Info</h2>
-                    <p>Staff register themselves. Use this only to correct an existing staff member's Unit or Shift.</p>
+                    <p>Staff register themselves. Use this only to correct an existing staff member's Unit, Role, or Shift.</p>
 
                     <div class="form-group">
                         <label>Staff Name</label>
@@ -1369,11 +1376,18 @@
 
                     <div class="form-group">
                         <label>Unit / Department</label>
-                        <select id="rosterUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                        <select id="rosterUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateRoleOptions('rosterUnit', 'rosterRole')">
                             <option value="" selected disabled>-- Select Unit --</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
                             <option value="Telemetry">Telemetry</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Role / Position</label>
+                        <select id="rosterRole" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="" selected disabled>-- Select Unit first --</option>
                         </select>
                     </div>
 
@@ -1446,14 +1460,6 @@
             selectedRegShift: null,
             preferences: {},
             proposedShift: {},
-            allStaff: [
-                // IMU (10)
-                'Ana', 'Ben', 'Carla', 'Dan', 'Elena', 'Franco', 'Gabriel', 'Hilda', 'Iris', 'Jack',
-                // ICU (18)
-                'Kevin', 'Liza', 'Maya', 'Noah', 'Olivia', 'Paolo', 'Queenie', 'Ramon', 'Sofia', 'Tomas', 'Uma', 'Victor', 'Wendy', 'Xander', 'Yara', 'Zach', 'Amelia', 'Bruno',
-                // Telemetry (8)
-                'Carmen', 'Diego', 'Elise', 'Felix', 'Grace', 'Hector', 'Isla', 'Julian'
-            ],
             approvedSchedule: {},
             savedTextTimeout: null,
             allSubmissions: {
@@ -1476,6 +1482,40 @@
         let approvedEnd = new Date(2026, 7, 8);    // 8/8/2026
         let pendingStart = new Date(2026, 7, 9);   // 8/9/2026
         let pendingEnd = new Date(2026, 8, 19);    // 9/19/2026
+
+        // ROLE/POSITION OPTIONS PER UNIT — Telemetry only has Monitor Techs,
+        // while IMU/ICU have a mix of RNs and PCA/PCTs. This is for the
+        // shift-working staff who actually appear on the schedule; Admin
+        // logins (Manager/Director/CNO/etc.) are a separate, unrelated
+        // login type and are not part of this list.
+        const ROLE_OPTIONS_BY_UNIT = {
+            Telemetry: ['Monitor Tech'],
+            IMU: ['RN', 'PCA/PCT'],
+            ICU: ['RN', 'PCA/PCT']
+        };
+
+        // FILL A ROLE/POSITION <select> BASED ON WHICHEVER UNIT IS CURRENTLY
+        // CHOSEN IN THE PAIRED UNIT <select>. Used by both the staff
+        // Registration form and Admin's Fix Staff Info panel.
+        function populateRoleOptions(unitSelectId, roleSelectId, selectedRole) {
+            const unit = document.getElementById(unitSelectId).value;
+            const roleSelect = document.getElementById(roleSelectId);
+            const options = ROLE_OPTIONS_BY_UNIT[unit] || [];
+
+            if (options.length === 0) {
+                roleSelect.innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
+                return;
+            }
+
+            roleSelect.innerHTML = '<option value="" disabled>-- Select Role/Position --</option>' +
+                options.map(role => `<option value="${role}">${role}</option>`).join('');
+
+            if (selectedRole && options.includes(selectedRole)) {
+                roleSelect.value = selectedRole;
+            } else {
+                roleSelect.selectedIndex = 0;
+            }
+        }
 
         // Convert a JS Date to a Firestore-safe date-only string (YYYY-MM-DD)
         function dateToKey(d) {
@@ -1709,10 +1749,10 @@
                     auth.signOut();
                     return;
                 }
-                const { unit, shift } = directoryDoc.data();
+                const { unit, shift, role } = directoryDoc.data();
                 const lockedDates = Array.isArray(directoryDoc.data().lockedDates) ? directoryDoc.data().lockedDates : [];
 
-                appState.user = { role: 'staff', name, shift, unit };
+                appState.user = { role: 'staff', name, shift, unit, staffRole: role || '' };
                 appState.staffKey = staffKey;
                 appState.lockedDates = lockedDates;
 
@@ -1743,6 +1783,7 @@
         async function registerStaff() {
             const name = document.getElementById('regStaffName').value.trim();
             const unit = document.getElementById('regUnit').value;
+            const role = document.getElementById('regRole').value;
             const shift = appState.selectedRegShift;
             const password = document.getElementById('regPassword').value;
             const confirmPassword = document.getElementById('regConfirmPassword').value;
@@ -1753,6 +1794,10 @@
             }
             if (!unit) {
                 alert('Please select your Unit/Department');
+                return;
+            }
+            if (!role) {
+                alert('Please select your Role/Position');
                 return;
             }
             if (!shift) {
@@ -1774,9 +1819,9 @@
             try {
                 await auth.createUserWithEmailAndPassword(email, password);
 
-                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, shift });
+                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, role, shift });
 
-                appState.user = { role: 'staff', name, shift, unit };
+                appState.user = { role: 'staff', name, shift, unit, staffRole: role };
                 appState.staffKey = staffKey;
                 appState.preferences = {};
                 appState.proposedShift = {};
@@ -1830,14 +1875,18 @@
                 document.getElementById('adminInfoCard').classList.remove('hidden');
                 document.getElementById('userInfoCard').classList.add('hidden');
 
-                appState.selectedAdminUnit = 'All';
-                document.getElementById('adminManageUnit').value = 'All';
-                document.getElementById('minStaffGroup').classList.add('hidden');
+                // Remember whichever Unit Admin was last managing on this
+                // browser, so they don't have to reselect it every login.
+                const savedUnit = localStorage.getItem('lastManagedUnit');
+                const validUnits = ['IMU', 'ICU', 'Telemetry'];
+                appState.selectedAdminUnit = (savedUnit && validUnits.includes(savedUnit)) ? savedUnit : 'All';
+                document.getElementById('adminManageUnit').value = appState.selectedAdminUnit;
+                document.getElementById('minStaffGroup').classList.toggle('hidden', appState.selectedAdminUnit === 'All');
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
                 document.getElementById('userName').textContent = `Hello, ${appState.user.name}!`;
-                document.getElementById('userShift').textContent = appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift';
+                document.getElementById('userShift').textContent = (appState.user.shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift') + (appState.user.staffRole ? ` — ${appState.user.staffRole}` : '');
             }
 
             const dept = document.getElementById('deptDisplay');
@@ -1954,6 +2003,10 @@
             appState.selectedAdminUnit = unit;
             document.getElementById('deptDisplay').textContent = unit === 'All' ? 'All Units' : unit;
             document.getElementById('minStaffGroup').classList.toggle('hidden', unit === 'All');
+
+            if (unit !== 'All') {
+                localStorage.setItem('lastManagedUnit', unit);
+            }
 
             const activeUnit = getActiveApprovedUnit();
             startSettingsSync(activeUnit);
@@ -2141,25 +2194,6 @@
             document.getElementById('homePage').classList.add('active');
         }
 
-        // MOCK STAFF-TO-UNIT MAPPING (for demo purposes only - no backend yet)
-        const staffUnitMap = {};
-        (function assignMockUnits() {
-            appState.allStaff.forEach((name, i) => {
-                if (i < 10) staffUnitMap[name] = 'IMU';
-                else if (i < 28) staffUnitMap[name] = 'ICU';
-                else staffUnitMap[name] = 'Telemetry';
-            });
-        })();
-
-        // MOCK STAFF-TO-SHIFT-TYPE MAPPING (for demo purposes only - no backend yet)
-        const staffShiftTypeMap = {};
-        (function assignMockShiftTypes() {
-            const types = ['day', 'night'];
-            appState.allStaff.forEach((name, i) => {
-                staffShiftTypeMap[name] = types[i % types.length];
-            });
-        })();
-
         // GO TO ADMIN: VIEW STAFF SCHEDULES
         function goToAdminStaffView() {
             document.getElementById('homePage').classList.remove('active');
@@ -2263,7 +2297,10 @@
                 const doc = await db.collection('staffDirectory').doc(staffKey).get();
                 if (doc.exists) {
                     const data = doc.data();
-                    if (data.unit) document.getElementById('rosterUnit').value = data.unit;
+                    if (data.unit) {
+                        document.getElementById('rosterUnit').value = data.unit;
+                        populateRoleOptions('rosterUnit', 'rosterRole', data.role);
+                    }
                     if (data.shift) document.getElementById('rosterShift').value = data.shift;
                 }
             } catch (error) {
@@ -2274,6 +2311,7 @@
         async function saveStaffRosterEntry() {
             const name = document.getElementById('rosterStaffName').value.trim();
             const unit = document.getElementById('rosterUnit').value;
+            const role = document.getElementById('rosterRole').value;
             const shift = document.getElementById('rosterShift').value;
 
             if (!name) {
@@ -2282,6 +2320,10 @@
             }
             if (!unit) {
                 alert('Please select the Unit/Department');
+                return;
+            }
+            if (!role) {
+                alert('Please select the Role/Position');
                 return;
             }
             if (!shift) {
@@ -2299,7 +2341,7 @@
                 }
 
                 await db.collection('staffDirectory').doc(staffKey).set(
-                    { name, unit, shift },
+                    { name, unit, role, shift },
                     { merge: true }
                 );
 
@@ -2309,6 +2351,7 @@
 
                 document.getElementById('rosterStaffName').value = '';
                 document.getElementById('rosterUnit').selectedIndex = 0;
+                document.getElementById('rosterRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
                 document.getElementById('rosterShift').selectedIndex = 0;
 
                 populateAdminStaffSelect();
@@ -2343,7 +2386,11 @@
             );
 
             select.innerHTML = filteredKeys.length
-                ? filteredKeys.map(key => `<option value="${key}">${staffDirectory[key].name} (${staffDirectory[key].unit})</option>`).join('')
+                ? filteredKeys.map(key => {
+                    const entry = staffDirectory[key];
+                    const roleSuffix = entry.role ? ` - ${entry.role}` : '';
+                    return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})</option>`;
+                }).join('')
                 : '<option value="">No staff have logged in yet for this unit</option>';
 
             renderAdminStaffTables();
@@ -2468,6 +2515,7 @@
             document.getElementById('staffPassword').value = '';
             document.getElementById('regStaffName').value = '';
             document.getElementById('regUnit').selectedIndex = 0;
+            document.getElementById('regRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
             document.getElementById('regPassword').value = '';
             document.getElementById('regConfirmPassword').value = '';
             document.getElementById('adminUsername').value = '';
@@ -2641,15 +2689,17 @@
 
         // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED — edits the
         // live Approved Schedule directly (visible to everyone right away).
-        function openApprovedEditCard(dateKey, dateStr) {
+        async function openApprovedEditCard(dateKey, dateStr) {
             if (!appState.user || appState.user.role !== 'admin') return;
 
             const assignment = appState.approvedSchedule[dateKey];
             if (!assignment) return;
 
+            const unit = getActiveApprovedUnit();
+
             appState.editingSlot = {
                 dateKey,
-                unit: getActiveApprovedUnit(),
+                unit,
                 day: [...assignment.day],
                 night: [...assignment.night],
                 target: 'approved'
@@ -2657,6 +2707,7 @@
 
             document.getElementById('editDateLabel').textContent = dateStr;
 
+            await loadEditRosterForUnit(unit);
             renderEditLists();
 
             const card = document.getElementById('approvedEditCard');
@@ -2674,14 +2725,15 @@
         // that date as a sensible starting point. This is Admin's private
         // scratchpad — it does NOT touch the live Approved Schedule until
         // Admin clicks "POST SCHEDULE".
-        function openDraftEditCard(dateKey, dateStr) {
+        async function openDraftEditCard(dateKey, dateStr) {
             if (!appState.user || appState.user.role !== 'admin') return;
 
             const assignment = (appState.draftScheduleCache && appState.draftScheduleCache[dateKey]) || { day: [], night: [] };
+            const unit = appState.selectedAdminUnit;
 
             appState.editingSlot = {
                 dateKey,
-                unit: appState.selectedAdminUnit,
+                unit,
                 day: [...assignment.day],
                 night: [...assignment.night],
                 target: 'draft'
@@ -2689,6 +2741,7 @@
 
             document.getElementById('editDateLabel').textContent = dateStr + ' (To Be Posted)';
 
+            await loadEditRosterForUnit(unit);
             renderEditLists();
 
             const card = document.getElementById('approvedEditCard');
@@ -2699,10 +2752,41 @@
             card.classList.add('card-visible');
         }
 
+        // LOAD THE REAL STAFF ROSTER (from Firestore staffDirectory) FOR THE
+        // EDIT CARD'S "+ Add" DROPDOWNS — split by Day/Night designated
+        // shift, scoped to the Unit currently being edited. This replaced
+        // an old hardcoded fake name list (Ana, Ben, Carla...) that had
+        // nothing to do with real registered staff.
+        async function loadEditRosterForUnit(unit) {
+            if (!unit) {
+                appState.editRoster = { day: [], night: [] };
+                return;
+            }
+            try {
+                const snapshot = await db.collection('staffDirectory').where('unit', '==', unit).get();
+                const day = [];
+                const night = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const entry = { name: data.name, role: data.role || '' };
+                    if (data.shift === 'day') day.push(entry);
+                    else night.push(entry);
+                });
+                day.sort((a, b) => a.name.localeCompare(b.name));
+                night.sort((a, b) => a.name.localeCompare(b.name));
+                appState.editRoster = { day, night };
+            } catch (error) {
+                console.error(`Error loading staff roster for ${unit}:`, error);
+                appState.editRoster = { day: [], night: [] };
+            }
+        }
+
         // RENDER THE STAFF CHIPS + ADD DROPDOWNS INSIDE THE EDIT CARD
         function renderEditLists() {
             const slot = appState.editingSlot;
             if (!slot) return;
+
+            const roster = appState.editRoster || { day: [], night: [] };
 
             const dayList = document.getElementById('editDayList');
             const nightList = document.getElementById('editNightList');
@@ -2717,15 +2801,17 @@
                 ? slot.night.map(name => `<div class="edit-staff-chip">${name}<button onclick="removeStaffFromSlot('night', '${name}')">✕</button></div>`).join('')
                 : '<span style="font-size: 12px; color: #999;">No one assigned</span>';
 
-            const dayAvailable = appState.allStaff.filter(name => !slot.day.includes(name));
-            const nightAvailable = appState.allStaff.filter(name => !slot.night.includes(name));
+            const dayAvailable = roster.day.filter(entry => !slot.day.includes(entry.name));
+            const nightAvailable = roster.night.filter(entry => !slot.night.includes(entry.name));
+
+            const optionLabel = (entry) => entry.role ? `${entry.name} (${entry.role})` : entry.name;
 
             dayAddSelect.innerHTML = dayAvailable.length
-                ? '<option value="" selected disabled>Select a Staff</option>' + dayAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
+                ? '<option value="" selected disabled>Select a Staff</option>' + dayAvailable.map(entry => `<option value="${entry.name}">${optionLabel(entry)}</option>`).join('')
                 : '<option value="">No staff available</option>';
 
             nightAddSelect.innerHTML = nightAvailable.length
-                ? '<option value="" selected disabled>Select a Staff</option>' + nightAvailable.map(name => `<option value="${name}">${name}</option>`).join('')
+                ? '<option value="" selected disabled>Select a Staff</option>' + nightAvailable.map(entry => `<option value="${entry.name}">${optionLabel(entry)}</option>`).join('')
                 : '<option value="">No staff available</option>';
         }
 
