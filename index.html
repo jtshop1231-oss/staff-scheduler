@@ -777,11 +777,6 @@
             accent-color: #b8860b;
         }
 
-        .preference-cell.pre-set {
-            outline: 3px dashed #b8860b;
-            outline-offset: -3px;
-        }
-
         .preference-cell:hover {
             border-color: #00c9c3;
         }
@@ -814,14 +809,20 @@
             font-weight: 700;
         }
 
-        /* STAFF-FACING PRE-SET LOCK — when Admin pre-sets a specific date
-           for this staff (from the Admin View Staff Schedules page), that
-           date shows here as a locked, non-editable "PRE-SET" cell. This
-           deliberately reuses the SAME .pref-on (teal) + .pre-set (dashed
-           gold outline) styling as the Admin table, so the staff's own
-           page and Admin's view of that staff always look identical — the
-           checkbox is the only thing that's Admin-only. */
+        /* PRE-SET — when Admin pre-sets a specific date for a staff member
+           (checkbox on the Admin View Staff Schedules page), that date shows
+           as this locked, non-editable violet cell with a lock icon — on
+           BOTH the Admin table AND that staff's own Preferences/Shift
+           Request pages, so they always look exactly the same. Violet is
+           used because it doesn't match any of the ON/OFF/PTO/Available
+           colors above, so a Pre-Set date is never confusable with a
+           staff's own choice. The checkbox itself is the only thing that
+           stays Admin-only.*/
         .preference-cell.pre-set {
+            background: linear-gradient(135deg, #9c6ade 0%, #5e35b1 100%);
+            color: #fff;
+            border-color: #4a148c;
+            font-weight: 800;
             cursor: not-allowed;
         }
 
@@ -2319,8 +2320,8 @@
                 const checkboxHtml = `<label class="preset-checkbox-wrap" title="Pre-Set this date (Admin-only)">
                         <input type="checkbox" class="preset-checkbox" data-staff="${staffKey}" data-date="${dateKey}" ${isLocked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleLockedDate('${staffKey}', '${dateKey}', this.checked)">
                     </label>`;
-                const cellColorClass = value ? `pref-${value}` : '';
-                const labelText = isLocked ? 'PRE-SET' : (value ? (prefLabels[value] || value) : '— No selection —');
+                const cellColorClass = isLocked ? '' : (value ? `pref-${value}` : '');
+                const labelText = isLocked ? '🔒 PRE-SET' : (value ? (prefLabels[value] || value) : '— No selection —');
                 const labelStyle = (!isLocked && !value) ? 'color: #999;' : '';
                 prefHtml += `<div class="preference-cell ${cellColorClass}${isLocked ? ' pre-set' : ''}">
                         ${checkboxHtml}
@@ -2344,8 +2345,8 @@
                 const checkboxHtml = `<label class="preset-checkbox-wrap" title="Pre-Set this date (Admin-only)">
                         <input type="checkbox" class="preset-checkbox" data-staff="${staffKey}" data-date="${dateKey}" ${isLocked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleLockedDate('${staffKey}', '${dateKey}', this.checked)">
                     </label>`;
-                const cellColorClass = value ? `pref-${value}` : '';
-                const labelText = isLocked ? 'PRE-SET' : (value ? (proposeLabels[value] || value) : '— No selection —');
+                const cellColorClass = isLocked ? '' : (value ? `pref-${value}` : '');
+                const labelText = isLocked ? '🔒 PRE-SET' : (value ? (proposeLabels[value] || value) : '— No selection —');
                 const labelStyle = (!isLocked && !value) ? 'color: #999;' : '';
                 proposeHtml += `<div class="preference-cell ${cellColorClass}${isLocked ? ' pre-set' : ''}">
                         ${checkboxHtml}
@@ -3293,14 +3294,14 @@
             relevantLocked.forEach(d => {
                 const cell = document.querySelector(`#${gridId} .preference-cell[data-key="${d}"]`);
                 if (!cell) return;
-                cell.classList.remove('pref-off', 'pref-pto', 'pref-available');
-                cell.classList.add('pref-on', 'pre-set');
+                cell.classList.remove('pref-on', 'pref-off', 'pref-pto', 'pref-available');
+                cell.classList.add('pre-set');
                 const select = cell.querySelector('select');
                 if (select) select.style.display = 'none';
                 if (!cell.querySelector('.pre-set-badge')) {
                     const badge = document.createElement('div');
                     badge.className = 'pre-set-badge';
-                    badge.textContent = 'PRE-SET';
+                    badge.textContent = '🔒 PRE-SET';
                     cell.appendChild(badge);
                 }
             });
