@@ -1102,6 +1102,16 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label>Open Which Unit?</label>
+                            <select id="adminLoginUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                                <option value="All">All Units (choose later)</option>
+                                <option value="IMU">IMU</option>
+                                <option value="ICU">ICU</option>
+                                <option value="Telemetry">Telemetry</option>
+                            </select>
+                        </div>
+
                         <button class="btn-primary" onclick="loginAdmin()">LOGIN</button>
                     </div>
                 </div>
@@ -1400,6 +1410,14 @@
                         </select>
                     </div>
 
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" id="rosterActive" checked style="width: auto;">
+                            Currently Active (uncheck if resigned/terminated)
+                        </label>
+                        <p style="font-size: 10px; color: #999; margin-top: 3px;">Inactive staff are hidden from the "+ Add" dropdown when editing a schedule, but their records are kept.</p>
+                    </div>
+
                     <button class="btn-primary" style="width: 100%;" onclick="saveStaffRosterEntry()">SAVE</button>
                     <p id="rosterSavedText" class="hidden" style="font-size: 11px; color: #00a8a8; font-weight: 700; margin-top: 6px; text-align: center;">✓ Saved</p>
                 </div>
@@ -1619,6 +1637,13 @@
                 staffRegisterForm.classList.add('hidden');
                 adminForm.classList.remove('hidden');
                 staffBtn.classList.add('hidden');
+
+                // Pre-fill with whichever Unit was last managed on this
+                // browser, as a convenient default — Admin can still freely
+                // pick a different one before logging in.
+                const savedUnit = localStorage.getItem('lastManagedUnit');
+                const validUnits = ['IMU', 'ICU', 'Telemetry'];
+                document.getElementById('adminLoginUnit').value = (savedUnit && validUnits.includes(savedUnit)) ? savedUnit : 'All';
             }
             document.getElementById('changeRoleLink').classList.remove('hidden');
         }
@@ -1819,7 +1844,7 @@
             try {
                 await auth.createUserWithEmailAndPassword(email, password);
 
-                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, role, shift });
+                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, role, shift, active: true });
 
                 appState.user = { role: 'staff', name, shift, unit, staffRole: role };
                 appState.staffKey = staffKey;
@@ -1858,7 +1883,9 @@
                 await auth.signInWithEmailAndPassword(email, password);
                 clearLoginAttempts(email);
 
+                const chosenUnit = document.getElementById('adminLoginUnit').value || 'All';
                 appState.user = { role: 'admin', name: 'Admin', unit: 'All Units' };
+                appState.adminLoginUnitChoice = chosenUnit;
                 showHomepage();
             } catch (error) {
                 recordFailedLoginAttempt(email);
@@ -1875,13 +1902,22 @@
                 document.getElementById('adminInfoCard').classList.remove('hidden');
                 document.getElementById('userInfoCard').classList.add('hidden');
 
-                // Remember whichever Unit Admin was last managing on this
-                // browser, so they don't have to reselect it every login.
-                const savedUnit = localStorage.getItem('lastManagedUnit');
+                // Use whichever Unit Admin explicitly picked on the login
+                // screen first. Fall back to whichever Unit was last
+                // managed on this browser only if no explicit choice was
+                // made this time (defensive default).
                 const validUnits = ['IMU', 'ICU', 'Telemetry'];
-                appState.selectedAdminUnit = (savedUnit && validUnits.includes(savedUnit)) ? savedUnit : 'All';
+                const loginChoice = appState.adminLoginUnitChoice;
+                const savedUnit = localStorage.getItem('lastManagedUnit');
+                appState.selectedAdminUnit = (loginChoice && (loginChoice === 'All' || validUnits.includes(loginChoice)))
+                    ? loginChoice
+                    : ((savedUnit && validUnits.includes(savedUnit)) ? savedUnit : 'All');
+
                 document.getElementById('adminManageUnit').value = appState.selectedAdminUnit;
                 document.getElementById('minStaffGroup').classList.toggle('hidden', appState.selectedAdminUnit === 'All');
+                if (appState.selectedAdminUnit !== 'All') {
+                    localStorage.setItem('lastManagedUnit', appState.selectedAdminUnit);
+                }
             } else {
                 document.getElementById('userInfoCard').classList.remove('hidden');
                 document.getElementById('adminInfoCard').classList.add('hidden');
@@ -2302,6 +2338,7 @@
                         populateRoleOptions('rosterUnit', 'rosterRole', data.role);
                     }
                     if (data.shift) document.getElementById('rosterShift').value = data.shift;
+                    document.getElementById('rosterActive').checked = data.active !== false;
                 }
             } catch (error) {
                 console.error('Error looking up staff for Fix Staff Info:', error);
@@ -2313,6 +2350,7 @@
             const unit = document.getElementById('rosterUnit').value;
             const role = document.getElementById('rosterRole').value;
             const shift = document.getElementById('rosterShift').value;
+            const active = document.getElementById('rosterActive').checked;
 
             if (!name) {
                 alert('Please enter the staff name');
@@ -2341,7 +2379,7 @@
                 }
 
                 await db.collection('staffDirectory').doc(staffKey).set(
-                    { name, unit, role, shift },
+                    { name, unit, role, shift, active },
                     { merge: true }
                 );
 
@@ -2353,6 +2391,7 @@
                 document.getElementById('rosterUnit').selectedIndex = 0;
                 document.getElementById('rosterRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
                 document.getElementById('rosterShift').selectedIndex = 0;
+                document.getElementById('rosterActive').checked = true;
 
                 populateAdminStaffSelect();
             } catch (error) {
@@ -2385,11 +2424,19 @@
                 key => unit === 'All' || staffDirectory[key].unit === unit
             );
 
-            select.innerHTML = filteredKeys.length
-                ? filteredKeys.map(key => {
+            const sortedKeys = filteredKeys.sort((a, b) => {
+                const aActive = staffDirectory[a].active !== false;
+                const bActive = staffDirectory[b].active !== false;
+                if (aActive !== bActive) return aActive ? -1 : 1;
+                return staffDirectory[a].name.localeCompare(staffDirectory[b].name);
+            });
+
+            select.innerHTML = sortedKeys.length
+                ? sortedKeys.map(key => {
                     const entry = staffDirectory[key];
                     const roleSuffix = entry.role ? ` - ${entry.role}` : '';
-                    return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})</option>`;
+                    const inactiveTag = entry.active === false ? ' — INACTIVE' : '';
+                    return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})${inactiveTag}</option>`;
                 }).join('')
                 : '<option value="">No staff have logged in yet for this unit</option>';
 
@@ -2505,6 +2552,7 @@
             appState.proposedShift = {};
             appState.editingSlot = null;
             appState.lockedDates = [];
+            appState.adminLoginUnitChoice = null;
             document.getElementById('approvedEditCard').classList.remove('card-visible');
             document.getElementById('editOverlayBackdrop').classList.remove('active');
             
@@ -2768,6 +2816,7 @@
                 const night = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data();
+                    if (data.active === false) return; // resigned/terminated — never offered for adding to a shift
                     const entry = { name: data.name, role: data.role || '' };
                     if (data.shift === 'day') day.push(entry);
                     else night.push(entry);
@@ -2923,7 +2972,7 @@
             draftSnapshot.forEach((doc) => { savedDrafts[doc.data().date] = doc.data(); });
 
             const staffKeysInUnit = Object.keys(staffDirectory).filter(
-                key => staffDirectory[key].unit === unit
+                key => staffDirectory[key].unit === unit && staffDirectory[key].active !== false
             );
 
             // Cache used by openDraftEditCard — merges any Admin-saved draft
@@ -3156,7 +3205,7 @@
                 const currentApproved = {};
                 currentApprovedSnapshot.forEach((doc) => { currentApproved[doc.data().date] = doc.data(); });
 
-                const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit);
+                const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit && staffDirectory[k].active !== false);
 
                 if (staffKeysInUnit.length === 0) {
                     alert(`No staff found in ${unit}.`);
@@ -3331,7 +3380,7 @@
                 const savedDrafts = {};
                 draftSnapshot.forEach((doc) => { savedDrafts[doc.data().date] = doc.data(); });
 
-                const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit);
+                const staffKeysInUnit = Object.keys(staffDirectory).filter(k => staffDirectory[k].unit === unit && staffDirectory[k].active !== false);
 
                 // Safety check: if there's nothing to post for THIS unit (no
                 // submissions AND no manually-saved draft assignments), this
