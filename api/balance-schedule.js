@@ -70,24 +70,38 @@ export default async function handler(req, res) {
 // Builds the instructions sent to Claude, encoding the department's
 // established scheduling rules.
 function buildPrompt(staff, dateKeys, minStaffPerShift) {
-    return `You are a hospital telemetry department scheduling assistant. Balance a 6-week staff schedule fairly and safely.
+    return `You are a hospital department scheduling assistant. Balance a 6-week staff schedule fairly, safely, and COMPLETELY — every date must end up staffed if it is at all possible, this is critical for small units that only have a couple of staff members total.
 
 RULES (follow exactly, in this priority order):
-1. Each staff member has a fixed, permanent shift type: "day" or "night" (see the "shift" field). Never assign someone to the opposite shift type.
-2. ELIGIBILITY: a staff member is eligible for a given date only if their statusByDate value for that date is "on", "available", or "pto". They must be EXCLUDED from that date if their status is "off" or missing — never assign someone who did not mark themselves eligible for that specific date.
-3. LOCKED / PRE-SET WEEKDAYS: each staff member may have a "lockedWeekdays" list (e.g. ["Saturday","Sunday"]). If a date falls on one of their locked weekdays AND they are eligible that date, they should always be scheduled that date — these days are fixed by Admin and must NEVER be changed or rotated away. Locked weekdays are exempt from the rotation rule below.
-4. WEEKDAY ROTATION (soft preference, not a hard rule): each staff member has a "previousWeekdays" list — the weekday(s) they were scheduled on in the last approved cycle. Where possible (staff is eligible and doing so doesn't violate the minimum staffing or fairness rules), prefer shifting each staff member to a DIFFERENT weekday than their previousWeekdays this cycle (e.g. someone who worked Monday last cycle should ideally work Tuesday this cycle), so the same people are not always stuck on the same day of the week forever. Do NOT apply this rotation to a staff member's lockedWeekdays (rule 3 always wins there).
-5. MINIMUM STAFFING: for each date and each shift (day and night), assign AT LEAST ${minStaffPerShift} staff if that many eligible staff exist. If fewer than ${minStaffPerShift} are eligible, assign everyone who is eligible (never leave an eligible person unassigned when the minimum isn't met).
-6. PRIORITY / TIE-BREAKING when MORE staff are eligible for a date/shift than the minimum needed: first prefer staff with statusByDate "on" over "available"/"pto". Among staff who are otherwise tied, use "quarterlyPriorityRank" (lower number = higher priority this quarter — this is pre-computed and already accounts for fair quarterly rotation, so just use it directly) as the primary tie-breaker, then "fcfsTimestamp" (smaller number = submitted earlier = higher priority; this may be null) as a secondary tie-breaker if ranks are equal.
-7. FAIRNESS: across the whole 6-week period, balance the total number of assigned shifts per staff member (within their own shift type), aiming for roughly 3 shifts per staff member per 7-day week. Do not let the same few people get most of the shifts while others equally eligible get very few.
-8. Never assign a staff member to a date where their status is "off" or missing, even if it would help rotation, locked days, or fairness — eligibility (rule 2) always overrides everything else.
 
-STAFF DATA — each entry has: name, shift ("day"/"night"), lockedWeekdays (weekday names that are fixed for this staff, per rule 3), previousWeekdays (weekday names they worked last cycle, per rule 4), fcfsTimestamp (ms since epoch or null), fcfsSource ("preferences" or "shiftRequest", tells you which submission the timestamp came from), quarterlyPriorityRank (pre-computed quarterly-rotated priority, 1 = highest), and statusByDate (map of date -> "on"/"off"/"available"/"pto", missing dates = no submission):
+1. FIXED SHIFT TYPE: Each staff member has a fixed, permanent shift type: "day" or "night" (see the "shift" field). Never assign someone to the opposite shift type.
+
+2. THREE-TIER ELIGIBILITY per date (this is the most important rule — read carefully):
+   Look at each staff member's statusByDate value for the date (missing = no key present for that date at all):
+   - Status "off" → EXCLUDED. Never assign this person this date, no matter what (this overrides every other rule, including minimum staffing).
+   - Status "on" → TIER 1 (highest-priority eligible candidate).
+   - Status "available" or "pto" → TIER 2 (eligible, lower priority than Tier 1).
+   - MISSING (no statusByDate entry at all for that date — they submitted nothing, from either their Shift Request or their Preferences) → TIER 3, "fallback-eligible". Do NOT treat this the same as "off". Tier 3 people are only assigned if Tier 1 + Tier 2 people aren't enough to reach minStaffPerShift for that date/shift — but they MUST be used for that purpose. Never leave a shift empty or understaffed just because everyone who is short of the minimum is Tier 3 rather than Tier 1/2 — filling the day always wins over waiting for an explicit response that never came.
+   When choosing WHICH people fill a shift: always exhaust all Tier 1 candidates first, then Tier 2, then Tier 3, in that order, using rule 6 to pick among candidates within the same tier.
+
+3. LOCKED / PRE-SET DATES: each staff member may have a "lockedDates" list of exact dates (YYYY-MM-DD) that Admin has pre-set for them. If a date appears in their lockedDates, they MUST be scheduled that date (their statusByDate for that date will already be "on" in practice, but treat the lockedDates entry as an unconditional guarantee regardless). Locked dates are completely exempt from rule 4's rotation preference — never skip or move a locked date for the sake of variety.
+
+4. WEEKDAY ROTATION (soft preference, not a hard rule): each staff member has a "previousWeekdays" list — the weekday(s) they were scheduled on in the last approved cycle. Where possible (staff is eligible and doing so doesn't violate minimum staffing, fairness, or a locked date), prefer shifting each staff member to a DIFFERENT weekday than their previousWeekdays this cycle, so the same people aren't always stuck on the same day of the week forever. Never apply this to a staff member's lockedDates (rule 3 always wins there).
+
+5. MINIMUM STAFFING — MANDATORY: for each date and each shift (day and night), assign AT LEAST ${minStaffPerShift} staff, using Tier 1 first, then Tier 2, then Tier 3 (rule 2) as needed to reach that number. Only leave a date/shift below the minimum if the TOTAL number of non-"off" staff of that shift type (Tier 1 + Tier 2 + Tier 3 combined) is genuinely less than ${minStaffPerShift} — in that case assign everyone who isn't "off". A date should essentially never show "no one assigned" unless literally every single staff member of that shift type marked "off" that day.
+
+6. TIE-BREAKING within the same tier, when more staff are eligible for a date/shift than currently needed: use "quarterlyPriorityRank" (lower number = higher priority this quarter — pre-computed, use directly) as the primary tie-breaker, then "fcfsTimestamp" (smaller number = submitted earlier = higher priority; may be null) as a secondary tie-breaker.
+
+7. FAIRNESS: across the whole 6-week period, balance the total number of assigned shifts per staff member (within their own shift type), aiming for roughly 3 shifts per staff member per 7-day week. Do not let the same few people get most of the shifts while others equally eligible get very few — this applies across all three tiers, including how Tier 3 fallback assignments get distributed.
+
+8. Rule 2's "off" exclusion always overrides every other rule, including minimum staffing — never schedule someone marked "off".
+
+STAFF DATA — each entry has: name, shift ("day"/"night"), lockedDates (exact YYYY-MM-DD dates that are guaranteed for this staff, per rule 3), previousWeekdays (weekday names they worked last cycle, per rule 4), fcfsTimestamp (ms since epoch or null), fcfsSource ("preferences" or "shiftRequest", tells you which submission the timestamp came from), quarterlyPriorityRank (pre-computed quarterly-rotated priority, 1 = highest), and statusByDate (map of date -> "on"/"off"/"available"/"pto"; a date with NO key present means no submission at all from either source — that is Tier 3, not excluded):
 ${JSON.stringify(staff, null, 2)}
 
 DATES TO SCHEDULE (YYYY-MM-DD):
 ${JSON.stringify(dateKeys)}
 
-Return ONLY a raw JSON object — no markdown code fences, no explanation, no extra text — mapping each date to { "day": [staff names], "night": [staff names] }. Use staff names exactly as given. Every date in DATES TO SCHEDULE must appear as a key, even if both arrays end up empty. Example shape:
+Return ONLY a raw JSON object — no markdown code fences, no explanation, no extra text — mapping each date to { "day": [staff names], "night": [staff names] }. Use staff names exactly as given. Every date in DATES TO SCHEDULE must appear as a key, even if both arrays end up empty (which should be rare — only when everyone of that shift type is "off" that day). Example shape:
 {"2026-08-09": {"day": ["Grace","Hector"], "night": ["Carmen","Diego"]}}`;
 }
