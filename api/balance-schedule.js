@@ -53,14 +53,33 @@ export default async function handler(req, res) {
             });
         }
 
+        if (data.stop_reason === 'max_tokens') {
+            return res.status(502).json({
+                error: 'Claude\'s response was cut off before it finished (stop_reason: max_tokens) — the schedule was too large for the current max_tokens setting. Try increasing max_tokens further.',
+                raw: textBlock.text.slice(-500)
+            });
+        }
+
         let cleaned = textBlock.text.trim();
-        cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+        cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+        // Defensive extra step: if Claude added any stray text before/after
+        // the JSON despite instructions not to, pull out just the
+        // outermost {...} object instead of failing outright.
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+        }
 
         let schedule;
         try {
             schedule = JSON.parse(cleaned);
         } catch (parseError) {
-            return res.status(502).json({ error: 'Could not parse Claude\'s response as JSON.', raw: textBlock.text });
+            return res.status(502).json({
+                error: 'Could not parse Claude\'s response as JSON. First 500 characters of its response: ' + textBlock.text.slice(0, 500),
+                raw: textBlock.text
+            });
         }
 
         return res.status(200).json({ schedule });
