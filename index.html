@@ -388,6 +388,70 @@
             transition: none !important;
         }
 
+        /* AI BALANCE LOADING OVERLAY — shown while the AI Balance request is
+           in progress (this can take a few minutes since real reasoning is
+           involved), so Admin isn't left wondering if the button click did
+           anything or tempted to close/refresh the page mid-request. */
+        .ai-balance-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 27, 40, 0.75);
+            z-index: 1500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ai-balance-overlay.active {
+            display: flex;
+        }
+
+        .ai-balance-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 40px 50px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+            max-width: 380px;
+        }
+
+        .ai-balance-card h2 {
+            color: #512da8;
+            font-size: 19px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .ai-balance-card p {
+            color: #b8860b;
+            font-weight: 700;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .ai-balance-spinner {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .ai-balance-spinner span {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #7c4dff 0%, #512da8 100%);
+            animation: ai-balance-bounce 1.4s infinite ease-in-out both;
+        }
+
+        .ai-balance-spinner span:nth-child(1) { animation-delay: -0.32s; }
+        .ai-balance-spinner span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes ai-balance-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
         .edit-card {
             position: fixed;
             top: 50%;
@@ -1191,6 +1255,17 @@
          currently active — it used to be trapped inside the Homepage's
          hidden container, which made it invisible on other pages. -->
     <div class="edit-overlay-backdrop" id="editOverlayBackdrop" onclick="cancelApprovedEdit()"></div>
+
+    <!-- AI BALANCE LOADING OVERLAY -->
+    <div class="ai-balance-overlay" id="aiBalanceOverlay">
+        <div class="ai-balance-card">
+            <div class="ai-balance-spinner">
+                <span></span><span></span><span></span>
+            </div>
+            <h2>🤖 AI is Balancing the Schedule...</h2>
+            <p>⚠️ This will take a few minutes. Please don't close or refresh this page while it's working.</p>
+        </div>
+    </div>
 
     <!-- EDIT CARD: shown when Admin clicks a date slot, on either the
          Approved Schedule (Homepage) or the Pending Approval Schedule page. -->
@@ -3270,6 +3345,7 @@
 
             btn.disabled = true;
             btn.textContent = '🤖 Balancing...';
+            document.getElementById('aiBalanceOverlay').classList.add('active');
 
             try {
                 const [directorySnapshot, shiftReqSnapshot, prefSnapshot, currentApprovedSnapshot] = await Promise.all([
@@ -3435,6 +3511,7 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = '🤖 AI Balance Schedule';
+                document.getElementById('aiBalanceOverlay').classList.remove('active');
             }
         }
 
