@@ -1367,6 +1367,7 @@
                     <div class="form-group">
                         <label>Filter by Unit</label>
                         <select id="adminUnitFilter" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateAdminStaffSelect()">
+                            <option value="" selected disabled>-- Select Unit --</option>
                             <option value="All">All Units</option>
                             <option value="IMU">IMU</option>
                             <option value="ICU">ICU</option>
@@ -2252,8 +2253,10 @@
         function goToAdminStaffView() {
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('adminStaffPage').classList.add('active');
-            document.getElementById('adminUnitFilter').value = 'All';
-            populateAdminStaffSelect();
+            document.getElementById('adminUnitFilter').selectedIndex = 0;
+            document.getElementById('adminStaffSelect').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
+            document.getElementById('adminPrefGrid').innerHTML = '';
+            document.getElementById('adminProposeGrid').innerHTML = '';
         }
 
         // BACK TO HOME (FROM ADMIN STAFF VIEW)
@@ -2483,6 +2486,14 @@
         async function populateAdminStaffSelect() {
             const unit = document.getElementById('adminUnitFilter').value;
             const select = document.getElementById('adminStaffSelect');
+
+            if (!unit) {
+                select.innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
+                document.getElementById('adminPrefGrid').innerHTML = '';
+                document.getElementById('adminProposeGrid').innerHTML = '';
+                return;
+            }
+
             select.innerHTML = '<option value="">Loading...</option>';
 
             let directorySnapshot;
@@ -2510,7 +2521,7 @@
             });
 
             select.innerHTML = sortedKeys.length
-                ? sortedKeys.map(key => {
+                ? '<option value="" selected disabled>-- Select Staff --</option>' + sortedKeys.map(key => {
                     const entry = staffDirectory[key];
                     const roleSuffix = entry.role ? ` - ${entry.role}` : '';
                     const inactiveTag = entry.active === false ? ' — INACTIVE' : '';
@@ -2518,7 +2529,8 @@
                 }).join('')
                 : '<option value="">No staff have logged in yet for this unit</option>';
 
-            renderAdminStaffTables();
+            document.getElementById('adminPrefGrid').innerHTML = '';
+            document.getElementById('adminProposeGrid').innerHTML = '';
         }
 
         // RENDER READ-ONLY CALENDAR FOR SELECTED STAFF — pulls their REAL
