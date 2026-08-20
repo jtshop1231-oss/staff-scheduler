@@ -3350,9 +3350,23 @@
                     const shiftReqSubmission = allShiftRequests[key] || {};
                     const prefSubmission = allPreferences[key] || {};
 
+                    // MERGE STATUS PER DATE: Shift Request is the primary/
+                    // authoritative source (the staff's final decision for
+                    // this specific cycle). If they didn't submit a Shift
+                    // Request for a date, fall back to their general
+                    // Preference (ON/OFF) for that date instead. If NEITHER
+                    // source has anything for a date, leave it unset
+                    // entirely — the AI treats a missing date as a
+                    // last-resort fallback candidate (not excluded), so it
+                    // can still fully staff the day even with zero explicit
+                    // responses, which matters most for small units.
                     const statusByDate = {};
-                    Object.keys(shiftReqSubmission).forEach((k) => {
-                        if (k !== '_submittedAt') statusByDate[k] = shiftReqSubmission[k];
+                    dateKeys.forEach((dateKey) => {
+                        if (shiftReqSubmission[dateKey] !== undefined) {
+                            statusByDate[dateKey] = shiftReqSubmission[dateKey];
+                        } else if (prefSubmission[dateKey] !== undefined) {
+                            statusByDate[dateKey] = prefSubmission[dateKey];
+                        }
                     });
 
                     // PRIMARY FCFS reference = Preferences submission time.
