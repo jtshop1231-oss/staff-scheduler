@@ -33,7 +33,8 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 model: 'claude-sonnet-5',
-                max_tokens: 4096,
+                max_tokens: 16000,
+                thinking: { type: 'disabled' },
                 messages: [{ role: 'user', content: prompt }]
             })
         });
@@ -47,7 +48,9 @@ export default async function handler(req, res) {
         const textBlock = (data.content || []).find(block => block.type === 'text');
 
         if (!textBlock) {
-            return res.status(502).json({ error: 'Claude did not return a text response.' });
+            return res.status(502).json({
+                error: `Claude did not return a text response (stop_reason: ${data.stop_reason || 'unknown'}). This usually means max_tokens was too low for the response — try increasing it.`
+            });
         }
 
         let cleaned = textBlock.text.trim();
