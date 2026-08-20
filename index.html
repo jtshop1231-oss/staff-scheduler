@@ -3188,13 +3188,24 @@
                 const assigned = savedDrafts[dateKey] || { day: [...dayStaff], night: [...nightStaff] };
                 appState.draftScheduleCache[dateKey] = assigned;
 
+                // Only show the raw "Requested" note when it actually
+                // differs from what got Assigned (e.g. AI Balance capped it
+                // at the target, or Admin manually adjusted it) — this is
+                // what makes the AI's actual work visible on the calendar,
+                // instead of always showing the untouched raw request list.
+                const sameList = (a, b) => a.length === b.length && a.every(n => b.includes(n));
+                const dayDiffers = !sameList(dayStaff, assigned.day);
+                const nightDiffers = !sameList(nightStaff, assigned.night);
+
                 html += `<td onclick="openDraftEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Requested Day:</span> ${dayStaff.length ? `<span class="staff-names">${dayStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        <span class="shift-label">Day:</span> ${assigned.day.length ? `<span class="staff-names">${assigned.day.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        ${dayDiffers ? `<div style="font-size: 9px; color: #999;">(Requested: ${dayStaff.length ? dayStaff.join(', ') : '—'})</div>` : ''}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Requested Night:</span> ${nightStaff.length ? `<span class="staff-names">${nightStaff.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        <span class="shift-label">Night:</span> ${assigned.night.length ? `<span class="staff-names">${assigned.night.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        ${nightDiffers ? `<div style="font-size: 9px; color: #999;">(Requested: ${nightStaff.length ? nightStaff.join(', ') : '—'})</div>` : ''}
                     </div>
                 </td>`;
 
