@@ -415,6 +415,30 @@
             max-width: 380px;
         }
 
+        .ai-summary-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #e53935;
+            color: #fff;
+            border: none;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ai-summary-close-btn:hover {
+            background: #c62828;
+        }
+
         .ai-balance-card h2 {
             color: #512da8;
             font-size: 19px;
@@ -1039,6 +1063,29 @@
             background: #00a8a8;
             border-radius: 10px;
         }
+
+        /* PRINT — when printing (triggered from the Saved AI Balance Notes
+           "Print" button), show ONLY that section as a clean document,
+           hiding the rest of the app entirely. */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #savedSummarySection, #savedSummarySection * {
+                visibility: visible;
+            }
+            #savedSummarySection {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                border: none;
+                box-shadow: none;
+            }
+            #savedSummarySection button {
+                display: none;
+            }
+        }
     </style>
 
     <!-- FIREBASE SDK (compat version — works with plain <script> tags, no build tools needed) -->
@@ -1271,10 +1318,19 @@
          once balancing finishes, so Admin can verify it followed the rules
          instead of just trusting the output blindly. -->
     <div class="ai-balance-overlay" id="aiSummaryOverlay">
-        <div class="ai-balance-card" style="max-width: 480px; text-align: left;">
+        <div class="ai-balance-card" style="max-width: 480px; text-align: left; position: relative;">
+            <button onclick="closeAiSummaryOverlay()" title="Close without saving" style="position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: #ffe0d4; color: #d84315; border: none; font-size: 13px; font-weight: 900; cursor: pointer; line-height: 1; padding: 0;">✕</button>
             <h2 style="text-align: center;">🤖 AI Balance Summary</h2>
             <p id="aiSummaryText" style="color: #2c5f7f; font-weight: 500; font-size: 13px; line-height: 1.6; margin: 12px 0; text-align: left;"></p>
-            <button class="btn-primary" style="width: 100%; margin-top: 6px;" onclick="document.getElementById('aiSummaryOverlay').classList.remove('active')">OK, Got It</button>
+
+            <div id="aiSummaryFooterDefault">
+                <button class="btn-primary" style="width: 100%; margin-top: 6px;" onclick="saveAiSummary()">SAVE</button>
+            </div>
+            <div id="aiSummaryFooterSaved" class="hidden">
+                <p style="color: #00a8a8; font-weight: 700; font-size: 12px; text-align: center; margin-bottom: 8px;">✓ Saved to Staff Schedule Status</p>
+                <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="printAiSummaryFromModal()">🖨️ PRINT</button>
+                <button class="btn-secondary" style="width: 100%;" onclick="closeAiSummaryOverlay()">Close</button>
+            </div>
         </div>
     </div>
 
@@ -1343,6 +1399,12 @@
                         </thead>
                         <tbody id="statusBody"></tbody>
                     </table>
+                </div>
+
+                <div class="schedule-section status-section hidden" id="savedSummarySection">
+                    <h2>📝 Saved AI Balance Notes</h2>
+                    <p id="savedSummaryText" style="font-size: 13px; color: #2c5f7f; line-height: 1.6; white-space: pre-wrap; text-align: left;"></p>
+                    <button class="btn-secondary" style="width: 100%;" onclick="printSavedSummary()">🖨️ Print</button>
                 </div>
             </div>
         </div>
@@ -3223,6 +3285,7 @@
             document.getElementById('forApprovalSchedule').classList.add('admin-editable');
 
             generateStaffStatusList(staffKeysInUnit, staffDirectory, allShiftRequests, unit, dateList);
+            loadSavedAiSummary(unit);
         }
 
         // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC MISSING DATES (real data from Firestore)
@@ -3282,6 +3345,72 @@
         //      period that just got approved) and re-opens the Shift
         //      Request window for the new cycle. Preferences are left
         //      untouched — they are not tied to a specific cycle.
+        // ============================================================
+        // AI BALANCE SUMMARY — SAVE / CLOSE / PRINT
+        // Admin can save the AI's plain-English explanation into Staff
+        // Schedule Status for reference, print it as a hard copy, or just
+        // close the card without keeping it. Saved notes are per-Unit and
+        // get cleared automatically once a new schedule is POSTed (see
+        // postSchedule()), since they belong to that specific cycle only.
+        // ============================================================
+        function closeAiSummaryOverlay() {
+            document.getElementById('aiSummaryOverlay').classList.remove('active');
+            document.getElementById('aiSummaryFooterDefault').classList.remove('hidden');
+            document.getElementById('aiSummaryFooterSaved').classList.add('hidden');
+        }
+
+        async function saveAiSummary() {
+            const unit = appState.selectedAdminUnit;
+            const summaryText = document.getElementById('aiSummaryText').textContent;
+            if (!unit || unit === 'All' || !summaryText) return;
+
+            try {
+                await db.collection('aiSummaries').doc(unit).set({
+                    summary: summaryText,
+                    savedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                document.getElementById('aiSummaryFooterDefault').classList.add('hidden');
+                document.getElementById('aiSummaryFooterSaved').classList.remove('hidden');
+                loadSavedAiSummary(unit);
+            } catch (error) {
+                console.error('Error saving AI summary:', error);
+                alert('Failed to save summary: ' + error.message);
+            }
+        }
+
+        function printAiSummaryFromModal() {
+            printSavedSummary();
+        }
+
+        function printSavedSummary() {
+            window.print();
+        }
+
+        // Loads the saved summary (if any) for the given unit into the
+        // Staff Schedule Status area — called whenever the Pending Approval
+        // page renders, so it's always in sync with what's actually saved.
+        async function loadSavedAiSummary(unit) {
+            const section = document.getElementById('savedSummarySection');
+            const textEl = document.getElementById('savedSummaryText');
+            if (!section || !textEl) return;
+            if (!unit || unit === 'All') {
+                section.classList.add('hidden');
+                return;
+            }
+            try {
+                const doc = await db.collection('aiSummaries').doc(unit).get();
+                if (doc.exists && doc.data().summary) {
+                    textEl.textContent = doc.data().summary;
+                    section.classList.remove('hidden');
+                } else {
+                    section.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading saved AI summary:', error);
+                section.classList.add('hidden');
+            }
+        }
+
         // ============================================================
         // ============================================================
         // AI BALANCE SCHEDULE — calls the /api/balance-schedule serverless
@@ -3463,6 +3592,8 @@
 
                 if (result.summary) {
                     document.getElementById('aiSummaryText').textContent = result.summary;
+                    document.getElementById('aiSummaryFooterDefault').classList.remove('hidden');
+                    document.getElementById('aiSummaryFooterSaved').classList.add('hidden');
                     document.getElementById('aiSummaryOverlay').classList.add('active');
                 } else {
                     alert('AI Balance complete! Click any date on this page to review or adjust before posting.');
@@ -3615,6 +3746,10 @@
                     pendingEnd: dateToKey(newPendingEnd),
                     proposeShiftOpen: true // reopen Shift Request for the new cycle
                 }, { merge: true });
+
+                // The saved AI Balance summary belonged to the cycle that
+                // just got posted — clear it so the next cycle starts fresh.
+                batch.delete(db.collection('aiSummaries').doc(unit));
 
                 await batch.commit();
 
