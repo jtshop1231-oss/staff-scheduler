@@ -1267,6 +1267,17 @@
         </div>
     </div>
 
+    <!-- AI BALANCE SUMMARY CARD — shows what the AI actually did and why,
+         once balancing finishes, so Admin can verify it followed the rules
+         instead of just trusting the output blindly. -->
+    <div class="ai-balance-overlay" id="aiSummaryOverlay">
+        <div class="ai-balance-card" style="max-width: 480px; text-align: left;">
+            <h2 style="text-align: center;">🤖 AI Balance Summary</h2>
+            <p id="aiSummaryText" style="color: #2c5f7f; font-weight: 500; font-size: 13px; line-height: 1.6; margin: 12px 0; text-align: left;"></p>
+            <button class="btn-primary" style="width: 100%; margin-top: 6px;" onclick="document.getElementById('aiSummaryOverlay').classList.remove('active')">OK, Got It</button>
+        </div>
+    </div>
+
     <!-- EDIT CARD: shown when Admin clicks a date slot, on either the
          Approved Schedule (Homepage) or the Pending Approval Schedule page. -->
     <div class="schedule-section edit-card" id="approvedEditCard">
@@ -1332,11 +1343,6 @@
                         </thead>
                         <tbody id="statusBody"></tbody>
                     </table>
-
-                    <div class="uncovered-summary">
-                        <h3>📋 Staffing Summary by Date</h3>
-                        <div id="uncoveredMonthsContainer"></div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -3150,7 +3156,6 @@
             let dayOfWeek = pendingStart.getDay();
             let currentDate = new Date(pendingStart);
             const dateList = [];
-            const staffingByMonth = {};
 
             for (let i = 0; i < dayOfWeek; i++) {
                 html += '<td></td>';
@@ -3164,7 +3169,6 @@
 
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'long' });
                 dateList.push({ key: dateKey, str: dateStr });
                 const dayStaff = [];
                 const nightStaff = [];
@@ -3177,10 +3181,6 @@
                         else nightStaff.push(staffDirectory[key].name);
                     }
                 });
-
-                const minRequired = appState.minStaffPerShift || 4;
-                if (!staffingByMonth[monthLabel]) staffingByMonth[monthLabel] = [];
-                staffingByMonth[monthLabel].push({ dateStr, dayCount: dayStaff.length, nightCount: nightStaff.length, minRequired });
 
                 // Assigned = Admin's saved draft for this date if it exists,
                 // otherwise the auto-computed submission list above (a
@@ -3200,11 +3200,11 @@
                 html += `<td onclick="openDraftEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Day:</span> ${assigned.day.length ? `<span class="staff-names">${assigned.day.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        <span class="shift-label">Day:</span> ${renderShiftCell(assigned.day)}
                         ${dayDiffers ? `<div style="font-size: 9px; color: #999;">(Requested: ${dayStaff.length ? dayStaff.join(', ') : '—'})</div>` : ''}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Night:</span> ${assigned.night.length ? `<span class="staff-names">${assigned.night.join(', ')}</span>` : '<span class="empty-dash">— — —</span>'}
+                        <span class="shift-label">Night:</span> ${renderShiftCell(assigned.night)}
                         ${nightDiffers ? `<div style="font-size: 9px; color: #999;">(Requested: ${nightStaff.length ? nightStaff.join(', ') : '—'})</div>` : ''}
                     </div>
                 </td>`;
@@ -3223,7 +3223,6 @@
             document.getElementById('forApprovalSchedule').classList.add('admin-editable');
 
             generateStaffStatusList(staffKeysInUnit, staffDirectory, allShiftRequests, unit, dateList);
-            generateStaffingSummary(staffingByMonth);
         }
 
         // LIST PER-STAFF SUBMISSION STATUS WITH SPECIFIC MISSING DATES (real data from Firestore)
@@ -3263,58 +3262,6 @@
             });
 
             document.getElementById('statusBody').innerHTML = html || '<tr><td colspan="2">No staff have submitted a Shift Request yet for this unit.</td></tr>';
-        }
-
-        // SUMMARIZE DATES WITH NO STAFF ASSIGNED, GROUPED BY MONTH, PORTRAIT (ROW-PER-DATE) FORMAT
-        // Compute a short staffing status label for one shift on one date,
-        // compared against Admin's configured Minimum Staff / Shift.
-        function getStaffingStatusText(count, minRequired) {
-            if (count === minRequired) return 'Fully Staffed';
-            if (count < minRequired) return `${minRequired - count} Staff needed`;
-            return `${count - minRequired} extra`;
-        }
-
-        function getStaffingStatusClass(count, minRequired) {
-            if (count === minRequired) return 'staffing-ok';
-            if (count < minRequired) return 'staffing-short';
-            return 'staffing-extra';
-        }
-
-        function generateStaffingSummary(staffingByMonth) {
-            const container = document.getElementById('uncoveredMonthsContainer');
-            if (!container) return;
-
-            const months = Object.keys(staffingByMonth);
-
-            if (months.length === 0) {
-                container.innerHTML = '<div class="uncovered-none">No dates in this period.</div>';
-                return;
-            }
-
-            let html = '';
-            months.forEach(month => {
-                html += `<div class="uncovered-month-block">
-                    <h4>${month}</h4>
-                    <table class="schedule-table uncovered-table">
-                        <thead>
-                            <tr><th>Date</th><th>Day Shift</th><th>Night Shift</th></tr>
-                        </thead>
-                        <tbody>`;
-
-                staffingByMonth[month].forEach(record => {
-                    const dayText = getStaffingStatusText(record.dayCount, record.minRequired);
-                    const dayClass = getStaffingStatusClass(record.dayCount, record.minRequired);
-                    const nightText = getStaffingStatusText(record.nightCount, record.minRequired);
-                    const nightClass = getStaffingStatusClass(record.nightCount, record.minRequired);
-                    html += `<tr><td>${record.dateStr}</td><td class="${dayClass}">${dayText}</td><td class="${nightClass}">${nightText}</td></tr>`;
-                });
-
-                html += `</tbody>
-                    </table>
-                </div>`;
-            });
-
-            container.innerHTML = html;
         }
 
         // ============================================================
@@ -3514,7 +3461,12 @@
                 });
                 await batch.commit();
 
-                alert('AI Balance complete! Click any date on this page to review or adjust before posting.');
+                if (result.summary) {
+                    document.getElementById('aiSummaryText').textContent = result.summary;
+                    document.getElementById('aiSummaryOverlay').classList.add('active');
+                } else {
+                    alert('AI Balance complete! Click any date on this page to review or adjust before posting.');
+                }
                 generateForApprovalSchedule();
             } catch (error) {
                 console.error('AI Balance error:', error);
