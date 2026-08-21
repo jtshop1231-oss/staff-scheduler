@@ -72,9 +72,9 @@ export default async function handler(req, res) {
             cleaned = cleaned.slice(firstBrace, lastBrace + 1);
         }
 
-        let schedule;
+        let parsed;
         try {
-            schedule = JSON.parse(cleaned);
+            parsed = JSON.parse(cleaned);
         } catch (parseError) {
             return res.status(502).json({
                 error: 'Could not parse Claude\'s response as JSON. First 500 characters of its response: ' + textBlock.text.slice(0, 500),
@@ -82,7 +82,13 @@ export default async function handler(req, res) {
             });
         }
 
-        return res.status(200).json({ schedule });
+        // Expected shape is { schedule, summary }. Fall back gracefully if
+        // Claude ever returns just the bare schedule object (e.g. missing
+        // the "schedule" wrapper key) so this doesn't hard-fail.
+        const schedule = (parsed.schedule && typeof parsed.schedule === 'object') ? parsed.schedule : parsed;
+        const summary = typeof parsed.summary === 'string' ? parsed.summary : '';
+
+        return res.status(200).json({ schedule, summary });
     } catch (error) {
         console.error('balance-schedule error:', error);
         return res.status(500).json({ error: error.message || 'Unknown server error.' });
@@ -129,6 +135,10 @@ ${JSON.stringify(staff, null, 2)}
 DATES TO SCHEDULE (YYYY-MM-DD):
 ${JSON.stringify(dateKeys)}
 
-Return ONLY a raw JSON object — no markdown code fences, no explanation, no extra text — mapping each date to { "day": [staff names], "night": [staff names] }. Use staff names exactly as given. Every date in DATES TO SCHEDULE must appear as a key, even if both arrays end up empty (which should be rare — only when everyone of that shift type is "off" that day). Example shape:
-{"2026-08-09": {"day": ["Grace","Hector"], "night": ["Carmen","Diego"]}}`;
+Return ONLY a raw JSON object — no markdown code fences, no explanation outside the JSON, no extra text — with exactly two top-level keys:
+- "schedule": an object mapping each date to { "day": [staff names], "night": [staff names] }. Use staff names exactly as given. Every date in DATES TO SCHEDULE must appear as a key, even if both arrays end up empty.
+- "summary": a short plain-English explanation (4-7 sentences) of what you actually did, written for a hospital Admin who needs to verify you followed the rules — NOT a restatement of the rules themselves. Cover: (a) roughly how many date/shifts hit the full ${minStaffPerShift}-person target vs how many fell short and why (genuinely not enough Tier 1/2 submissions that day), (b) any notable redistribution moves you made (rule 4b) to fix a shortfall by moving someone from an overfull day, (c) any locked/pre-set dates that were honored, (d) roughly how fairness/rotation was balanced across staff, and (e) specific dates Admin should double-check first. Be concrete with real dates/names from this run, not generic.
+
+Example shape:
+{"schedule": {"2026-08-09": {"day": ["Grace","Hector"], "night": ["Carmen","Diego"]}}, "summary": "Most dates reached the 2-person target using Tier 1 ON requests. Aug 13 night fell short at 1 person (only Diego submitted) since no one else responded for that date. Moved Felix from Aug 14 (which had 3 eligible) to cover Aug 20 night, which was short. Carmen's Aug 16 lock was honored. Admin should double-check Aug 13 and Aug 27 nights, which are both understaffed."}`;
 }
