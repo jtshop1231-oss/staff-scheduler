@@ -2312,9 +2312,12 @@
             generatePreferenceGrid();
             applyRestoredSelections('preferences', 'select-', 'preferenceGrid');
 
-            // If they already have saved Preferences, show the page as
-            // locked/SUBMITTED by default — they must tap Edit to change it.
-            if (Object.keys(appState.preferences).length > 0) {
+            // If they've ACTUALLY submitted (staff clicked Submit at some
+            // point — marked by _submittedAt), show the page as
+            // locked/SUBMITTED by default. A Pre-Set date from Admin alone
+            // does NOT count as a real submission — the staff still needs
+            // to fill in the rest of their own schedule.
+            if (appState.preferences._submittedAt) {
                 lockSubmittedUI('preference');
             } else {
                 enableEditMode('preference');
@@ -2349,9 +2352,10 @@
             generateProposeGrid();
             applyRestoredSelections('proposedShift', 'propose-select-', 'proposeGrid');
 
-            // Same idea for Shift Request: default to locked/SUBMITTED if
-            // they already have a saved submission for this period.
-            if (Object.keys(appState.proposedShift).length > 0) {
+            // Same idea for Shift Request: default to locked/SUBMITTED only
+            // if they ACTUALLY submitted (marked by _submittedAt) — not
+            // just because Admin pre-set one or more of their dates.
+            if (appState.proposedShift._submittedAt) {
                 lockSubmittedUI('propose');
             } else {
                 enableEditMode('propose');
