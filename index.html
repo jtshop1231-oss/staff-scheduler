@@ -2394,6 +2394,8 @@
 
         // GO TO ADMIN: VIEW STAFF SCHEDULES
         function goToAdminStaffView() {
+            stopStaffDirectoryListSync();
+            stopAdminStaffTablesSync();
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('adminStaffPage').classList.add('active');
             document.getElementById('adminUnitFilter').selectedIndex = 0;
@@ -2404,6 +2406,8 @@
 
         // BACK TO HOME (FROM ADMIN STAFF VIEW)
         function backToHomeFromAdminStaff() {
+            stopStaffDirectoryListSync();
+            stopAdminStaffTablesSync();
             document.getElementById('adminStaffPage').classList.remove('active');
             document.getElementById('homePage').classList.add('active');
         }
@@ -2472,10 +2476,9 @@
                     ]);
                 }
 
-                // Re-render both admin tables from fresh Firestore data so
-                // the PRE-SET label/color always matches the real saved
-                // state — never left stale from a partial DOM toggle.
-                await renderAdminStaffTables();
+                // Re-render both admin tables so the PRE-SET label/color
+                // picks up the just-updated lockedDates immediately.
+                renderAdminStaffTables();
             } catch (error) {
                 console.error('Error saving pre-set date:', error);
                 alert('Failed to save pre-set date: ' + error.message);
@@ -2626,96 +2629,86 @@
 
         // POPULATE STAFF DROPDOWN — REAL staff who have actually logged in
         // (from Firestore staffDirectory), not the old fixed mock roster.
-        async function populateAdminStaffSelect() {
+        // ============================================================
+        // LIVE SYNC FOR ADMIN'S "VIEW STAFF SCHEDULES" PAGE — the staff
+        // list, and the selected staff's Preferences/Shift Request grids,
+        // now stay LIVE-MIRRORED to Firestore in real time (instead of a
+        // one-time fetch). This means the instant a staff member submits
+        // or updates something, Admin sees it immediately with no manual
+        // refresh or re-login needed — and it's also more resilient to
+        // stale sessions, since Firebase keeps an active listener's
+        // credentials refreshed for as long as it stays open.
+        // ============================================================
+        let staffDirectoryListUnsubscribe = null;
+        let adminStaffPrefUnsubscribe = null;
+        let adminStaffShiftReqUnsubscribe = null;
+
+        function stopStaffDirectoryListSync() {
+            if (staffDirectoryListUnsubscribe) {
+                staffDirectoryListUnsubscribe();
+                staffDirectoryListUnsubscribe = null;
+            }
+        }
+
+        function stopAdminStaffTablesSync() {
+            if (adminStaffPrefUnsubscribe) {
+                adminStaffPrefUnsubscribe();
+                adminStaffPrefUnsubscribe = null;
+            }
+            if (adminStaffShiftReqUnsubscribe) {
+                adminStaffShiftReqUnsubscribe();
+                adminStaffShiftReqUnsubscribe = null;
+            }
+        }
+
+        function populateAdminStaffSelect() {
             const unit = document.getElementById('adminUnitFilter').value;
             const select = document.getElementById('adminStaffSelect');
 
+            stopStaffDirectoryListSync();
+            stopAdminStaffTablesSync();
+            document.getElementById('adminPrefGrid').innerHTML = '';
+            document.getElementById('adminProposeGrid').innerHTML = '';
+
             if (!unit) {
                 select.innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
-                document.getElementById('adminPrefGrid').innerHTML = '';
-                document.getElementById('adminProposeGrid').innerHTML = '';
                 return;
             }
 
             select.innerHTML = '<option value="">Loading...</option>';
 
-            let directorySnapshot;
-            try {
-                directorySnapshot = await db.collection('staffDirectory').get();
-            } catch (error) {
+            staffDirectoryListUnsubscribe = db.collection('staffDirectory').onSnapshot((directorySnapshot) => {
+                const staffDirectory = {};
+                directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
+                appState.staffDirectoryCache = staffDirectory; // reused by renderAdminStaffTables
+
+                const filteredKeys = Object.keys(staffDirectory).filter(
+                    key => unit === 'All' || staffDirectory[key].unit === unit
+                );
+
+                const sortedKeys = filteredKeys.sort((a, b) => {
+                    const aActive = staffDirectory[a].active !== false;
+                    const bActive = staffDirectory[b].active !== false;
+                    if (aActive !== bActive) return aActive ? -1 : 1;
+                    return staffDirectory[a].name.localeCompare(staffDirectory[b].name);
+                });
+
+                select.innerHTML = sortedKeys.length
+                    ? '<option value="" selected disabled>-- Select Staff --</option>' + sortedKeys.map(key => {
+                        const entry = staffDirectory[key];
+                        const roleSuffix = entry.role ? ` - ${entry.role}` : '';
+                        const inactiveTag = entry.active === false ? ' — INACTIVE' : '';
+                        return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})${inactiveTag}</option>`;
+                    }).join('')
+                    : '<option value="">No staff have logged in yet for this unit</option>';
+            }, (error) => {
                 console.error('Error loading staff directory:', error);
                 select.innerHTML = '<option value="">Failed to load staff list</option>';
-                return;
-            }
-
-            const staffDirectory = {};
-            directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
-            appState.staffDirectoryCache = staffDirectory; // reused by renderAdminStaffTables
-
-            const filteredKeys = Object.keys(staffDirectory).filter(
-                key => unit === 'All' || staffDirectory[key].unit === unit
-            );
-
-            const sortedKeys = filteredKeys.sort((a, b) => {
-                const aActive = staffDirectory[a].active !== false;
-                const bActive = staffDirectory[b].active !== false;
-                if (aActive !== bActive) return aActive ? -1 : 1;
-                return staffDirectory[a].name.localeCompare(staffDirectory[b].name);
             });
-
-            select.innerHTML = sortedKeys.length
-                ? '<option value="" selected disabled>-- Select Staff --</option>' + sortedKeys.map(key => {
-                    const entry = staffDirectory[key];
-                    const roleSuffix = entry.role ? ` - ${entry.role}` : '';
-                    const inactiveTag = entry.active === false ? ' — INACTIVE' : '';
-                    return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})${inactiveTag}</option>`;
-                }).join('')
-                : '<option value="">No staff have logged in yet for this unit</option>';
-
-            document.getElementById('adminPrefGrid').innerHTML = '';
-            document.getElementById('adminProposeGrid').innerHTML = '';
         }
 
-        // RENDER READ-ONLY CALENDAR FOR SELECTED STAFF — pulls their REAL
-        // submitted Preferences + Shift Request straight from Firestore.
-        async function renderAdminStaffTables() {
-            const staffKey = document.getElementById('adminStaffSelect').value;
-            if (!staffKey) {
-                document.getElementById('adminPrefGrid').innerHTML = '';
-                document.getElementById('adminProposeGrid').innerHTML = '';
-                return;
-            }
-
-            const staffDirectory = appState.staffDirectoryCache || {};
-            const staffName = staffDirectory[staffKey] ? staffDirectory[staffKey].name : staffKey;
-            const staffShift = staffDirectory[staffKey] ? staffDirectory[staffKey].shift : null;
-            const lockedDates = (staffDirectory[staffKey] && Array.isArray(staffDirectory[staffKey].lockedDates))
-                ? staffDirectory[staffKey].lockedDates
-                : [];
-
-            document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
-            document.getElementById('adminProposeTitle').textContent = `${staffName}'s Shift Request`;
-
-            const shiftBadgeText = staffShift === 'night' ? '🌙 Night Shift' : staffShift === 'day' ? '☀️ Day Shift' : '';
-            document.getElementById('adminPrefShiftBadge').textContent = shiftBadgeText;
-            document.getElementById('adminProposeShiftBadge').textContent = shiftBadgeText;
-
-            let prefDoc, shiftReqDoc;
-            try {
-                [prefDoc, shiftReqDoc] = await Promise.all([
-                    db.collection('preferences').doc(staffKey).get(),
-                    db.collection('shiftRequests').doc(staffKey).get()
-                ]);
-            } catch (error) {
-                console.error('Error loading staff submissions:', error);
-                document.getElementById('adminPrefGrid').innerHTML = 'Failed to load: ' + error.message;
-                return;
-            }
-
-            const preferences = prefDoc.exists ? prefDoc.data() : {};
-            const proposedShift = shiftReqDoc.exists ? shiftReqDoc.data() : {};
-
-            // PREFERENCES GRID (Request ON / OFF) — blank cell if not submitted
+        // Builds the Preferences grid HTML for one staff member's data.
+        function renderPreferenceGridForStaff(staffKey, preferences, lockedDates) {
             const prefLabels = { on: 'Request ON', off: 'Request OFF', pto: 'Request PTO' };
             let prefHtml = '';
             let currentDate = new Date(pendingStart);
@@ -2739,11 +2732,13 @@
                 currentDate.setDate(currentDate.getDate() + 1);
             }
             document.getElementById('adminPrefGrid').innerHTML = prefHtml;
+        }
 
-            // PROPOSE SHIFT GRID (ON / OFF / Available / PTO) — blank cell if not submitted
+        // Builds the Shift Request grid HTML for one staff member's data.
+        function renderProposeGridForStaff(staffKey, proposedShift, lockedDates) {
             const proposeLabels = { on: 'ON Shift', off: 'OFF Shift', available: 'Available', pto: 'Request PTO' };
             let proposeHtml = '';
-            currentDate = new Date(pendingStart);
+            let currentDate = new Date(pendingStart);
 
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
@@ -2766,6 +2761,49 @@
             document.getElementById('adminProposeGrid').innerHTML = proposeHtml;
         }
 
+        // LIVE-MIRRORS the selected staff's REAL submitted Preferences +
+        // Shift Request from Firestore — updates automatically the instant
+        // that staff (or Admin's own Pre-Set toggling) changes anything.
+        function renderAdminStaffTables() {
+            const staffKey = document.getElementById('adminStaffSelect').value;
+
+            stopAdminStaffTablesSync();
+
+            if (!staffKey) {
+                document.getElementById('adminPrefGrid').innerHTML = '';
+                document.getElementById('adminProposeGrid').innerHTML = '';
+                return;
+            }
+
+            const staffDirectory = appState.staffDirectoryCache || {};
+            const staffName = staffDirectory[staffKey] ? staffDirectory[staffKey].name : staffKey;
+            const staffShift = staffDirectory[staffKey] ? staffDirectory[staffKey].shift : null;
+            const lockedDates = (staffDirectory[staffKey] && Array.isArray(staffDirectory[staffKey].lockedDates))
+                ? staffDirectory[staffKey].lockedDates
+                : [];
+
+            document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
+            document.getElementById('adminProposeTitle').textContent = `${staffName}'s Shift Request`;
+
+            const shiftBadgeText = staffShift === 'night' ? '🌙 Night Shift' : staffShift === 'day' ? '☀️ Day Shift' : '';
+            document.getElementById('adminPrefShiftBadge').textContent = shiftBadgeText;
+            document.getElementById('adminProposeShiftBadge').textContent = shiftBadgeText;
+
+            adminStaffPrefUnsubscribe = db.collection('preferences').doc(staffKey).onSnapshot((doc) => {
+                renderPreferenceGridForStaff(staffKey, doc.exists ? doc.data() : {}, lockedDates);
+            }, (error) => {
+                console.error('Error syncing staff preferences:', error);
+                document.getElementById('adminPrefGrid').innerHTML = 'Failed to load: ' + error.message;
+            });
+
+            adminStaffShiftReqUnsubscribe = db.collection('shiftRequests').doc(staffKey).onSnapshot((doc) => {
+                renderProposeGridForStaff(staffKey, doc.exists ? doc.data() : {}, lockedDates);
+            }, (error) => {
+                console.error('Error syncing staff shift request:', error);
+                document.getElementById('adminProposeGrid').innerHTML = 'Failed to load: ' + error.message;
+            });
+        }
+
         // BACK TO HOME
         function backToHome() {
             document.getElementById('preferencePage').classList.remove('active');
@@ -2778,6 +2816,8 @@
 
             stopApprovedScheduleSync();
             stopSettingsSync();
+            stopStaffDirectoryListSync();
+            stopAdminStaffTablesSync();
 
             appState.user = null;
             appState.selectedRegShift = null;
