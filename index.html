@@ -2711,8 +2711,9 @@
                     ? '<option value="" selected disabled>-- Select Staff --</option>' + sortedKeys.map(key => {
                         const entry = staffDirectory[key];
                         const roleSuffix = entry.role ? ` - ${entry.role}` : '';
+                        const shiftTag = entry.shift === 'night' ? ' - N' : entry.shift === 'day' ? ' - D' : '';
                         const inactiveTag = entry.active === false ? ' — INACTIVE' : '';
-                        return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})${inactiveTag}</option>`;
+                        return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})${shiftTag}${inactiveTag}</option>`;
                     }).join('')
                     : '<option value="">No staff have logged in yet for this unit</option>';
 
