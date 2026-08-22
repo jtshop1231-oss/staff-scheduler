@@ -2476,9 +2476,11 @@
                     ]);
                 }
 
-                // Re-render both admin tables so the PRE-SET label/color
-                // picks up the just-updated lockedDates immediately.
-                renderAdminStaffTables();
+                // No manual re-render needed here anymore — the live
+                // listeners already watching this staff member's directory
+                // entry, Preferences, and Shift Request will pick up these
+                // writes automatically and update the PRE-SET badge on
+                // their own.
             } catch (error) {
                 console.error('Error saving pre-set date:', error);
                 alert('Failed to save pre-set date: ' + error.message);
@@ -2640,6 +2642,7 @@
         // credentials refreshed for as long as it stays open.
         // ============================================================
         let staffDirectoryListUnsubscribe = null;
+        let adminStaffDirDocUnsubscribe = null;
         let adminStaffPrefUnsubscribe = null;
         let adminStaffShiftReqUnsubscribe = null;
 
@@ -2651,6 +2654,10 @@
         }
 
         function stopAdminStaffTablesSync() {
+            if (adminStaffDirDocUnsubscribe) {
+                adminStaffDirDocUnsubscribe();
+                adminStaffDirDocUnsubscribe = null;
+            }
             if (adminStaffPrefUnsubscribe) {
                 adminStaffPrefUnsubscribe();
                 adminStaffPrefUnsubscribe = null;
@@ -2682,6 +2689,13 @@
                 directorySnapshot.forEach((doc) => { staffDirectory[doc.id] = doc.data(); });
                 appState.staffDirectoryCache = staffDirectory; // reused by renderAdminStaffTables
 
+                // Preserve whichever staff is currently selected — a write
+                // ANYWHERE in staffDirectory (including Admin's own Pre-Set
+                // toggle on the currently-viewed staff) re-fires this same
+                // listener, and without this the dropdown would silently
+                // snap back to the placeholder every time.
+                const previouslySelected = select.value;
+
                 const filteredKeys = Object.keys(staffDirectory).filter(
                     key => unit === 'All' || staffDirectory[key].unit === unit
                 );
@@ -2701,6 +2715,10 @@
                         return `<option value="${key}">${entry.name} (${entry.unit}${roleSuffix})${inactiveTag}</option>`;
                     }).join('')
                     : '<option value="">No staff have logged in yet for this unit</option>';
+
+                if (previouslySelected && sortedKeys.includes(previouslySelected)) {
+                    select.value = previouslySelected;
+                }
             }, (error) => {
                 console.error('Error loading staff directory:', error);
                 select.innerHTML = '<option value="">Failed to load staff list</option>';
@@ -2775,29 +2793,54 @@
                 return;
             }
 
-            const staffDirectory = appState.staffDirectoryCache || {};
-            const staffName = staffDirectory[staffKey] ? staffDirectory[staffKey].name : staffKey;
-            const staffShift = staffDirectory[staffKey] ? staffDirectory[staffKey].shift : null;
-            const lockedDates = (staffDirectory[staffKey] && Array.isArray(staffDirectory[staffKey].lockedDates))
-                ? staffDirectory[staffKey].lockedDates
-                : [];
+            // Combine THREE live sources for this one staff member —
+            // their directory entry (for lockedDates/name/shift),
+            // Preferences, and Shift Request — and re-render both grids
+            // whenever ANY of them updates. This is what makes the
+            // PRE-SET badge always match the real current lockedDates
+            // instead of a possibly-stale cached snapshot.
+            let latestLockedDates = [];
+            let latestPreferences = {};
+            let latestProposedShift = {};
+            let dirLoaded = false, prefLoaded = false, shiftLoaded = false;
 
-            document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
-            document.getElementById('adminProposeTitle').textContent = `${staffName}'s Shift Request`;
+            function renderBothIfReady() {
+                if (!dirLoaded || !prefLoaded || !shiftLoaded) return;
+                renderPreferenceGridForStaff(staffKey, latestPreferences, latestLockedDates);
+                renderProposeGridForStaff(staffKey, latestProposedShift, latestLockedDates);
+            }
 
-            const shiftBadgeText = staffShift === 'night' ? '🌙 Night Shift' : staffShift === 'day' ? '☀️ Day Shift' : '';
-            document.getElementById('adminPrefShiftBadge').textContent = shiftBadgeText;
-            document.getElementById('adminProposeShiftBadge').textContent = shiftBadgeText;
+            adminStaffDirDocUnsubscribe = db.collection('staffDirectory').doc(staffKey).onSnapshot((doc) => {
+                const data = doc.exists ? doc.data() : {};
+                const staffName = data.name || staffKey;
+                const staffShift = data.shift || null;
+                latestLockedDates = Array.isArray(data.lockedDates) ? data.lockedDates : [];
+
+                document.getElementById('adminPrefTitle').textContent = `${staffName}'s Preferences`;
+                document.getElementById('adminProposeTitle').textContent = `${staffName}'s Shift Request`;
+                const shiftBadgeText = staffShift === 'night' ? '🌙 Night Shift' : staffShift === 'day' ? '☀️ Day Shift' : '';
+                document.getElementById('adminPrefShiftBadge').textContent = shiftBadgeText;
+                document.getElementById('adminProposeShiftBadge').textContent = shiftBadgeText;
+
+                dirLoaded = true;
+                renderBothIfReady();
+            }, (error) => {
+                console.error('Error syncing staff directory entry:', error);
+            });
 
             adminStaffPrefUnsubscribe = db.collection('preferences').doc(staffKey).onSnapshot((doc) => {
-                renderPreferenceGridForStaff(staffKey, doc.exists ? doc.data() : {}, lockedDates);
+                latestPreferences = doc.exists ? doc.data() : {};
+                prefLoaded = true;
+                renderBothIfReady();
             }, (error) => {
                 console.error('Error syncing staff preferences:', error);
                 document.getElementById('adminPrefGrid').innerHTML = 'Failed to load: ' + error.message;
             });
 
             adminStaffShiftReqUnsubscribe = db.collection('shiftRequests').doc(staffKey).onSnapshot((doc) => {
-                renderProposeGridForStaff(staffKey, doc.exists ? doc.data() : {}, lockedDates);
+                latestProposedShift = doc.exists ? doc.data() : {};
+                shiftLoaded = true;
+                renderBothIfReady();
             }, (error) => {
                 console.error('Error syncing staff shift request:', error);
                 document.getElementById('adminProposeGrid').innerHTML = 'Failed to load: ' + error.message;
