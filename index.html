@@ -2477,7 +2477,7 @@
             document.getElementById('forApprovalPage').classList.add('active');
             aiChatHistory = [];
             aiChatSummaryContext = '';
-            document.getElementById('aiChatMessages').innerHTML = '<div class="chat-bubble-ai" style="opacity:0.7;">Tanungin mo ako tungkol sa pag-balance ng schedule na ito.</div>';
+            document.getElementById('aiChatMessages').innerHTML = '<div class="chat-bubble-ai" style="opacity:0.7;">Ask me about this schedule\'s balancing.</div>';
             generateForApprovalSchedule();
         }
 
@@ -3523,7 +3523,7 @@
             aiChatSummaryContext = summaryText;
             document.getElementById('aiChatMessages').innerHTML = '';
 
-            const starter = 'Na-balance ko na ang schedule base sa ating mga panuntunan. Okay ka ba sa pagkakabalanse nito, o may gusto ka bang baguhin?';
+            const starter = "I've balanced the schedule based on our rules. Are you satisfied with the balancing, or is there something you'd like changed?";
             aiChatHistory.push({ role: 'assistant', content: starter });
             appendChatMessage('assistant', starter);
         }
@@ -3540,7 +3540,7 @@
             const container = document.getElementById('aiChatMessages');
             const typingBubble = document.createElement('div');
             typingBubble.className = 'chat-bubble-typing';
-            typingBubble.textContent = 'Nag-iisip...';
+            typingBubble.textContent = 'Thinking...';
             container.appendChild(typingBubble);
             container.scrollTop = container.scrollHeight;
 
@@ -3565,7 +3565,7 @@
             } catch (error) {
                 typingBubble.remove();
                 console.error('AI chat error:', error);
-                appendChatMessage('assistant', 'Pasensya na, may error: ' + error.message);
+                appendChatMessage('assistant', 'Sorry, there was an error: ' + error.message);
             }
         }
 
