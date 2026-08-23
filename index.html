@@ -1096,6 +1096,29 @@
             font-style: italic;
         }
 
+        .chat-typing-dots {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            padding: 4px 2px;
+        }
+
+        .chat-typing-dots span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #9575cd;
+            animation: chat-typing-bounce 1.4s infinite ease-in-out both;
+        }
+
+        .chat-typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .chat-typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes chat-typing-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
         /* PRINT — when printing (triggered from the Saved AI Balance Notes
            "Print" button), show ONLY that section as a clean document,
            hiding the rest of the app entirely. */
@@ -1417,8 +1440,8 @@
                     <h2 style="font-size: 16px;">💬 Ask AI About This Schedule</h2>
                     <p style="font-size: 11px; color: #888; margin-bottom: 8px;">Scoped to this schedule's balancing only.</p>
                     <div id="aiChatMessages" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
-                    <div style="display: flex; gap: 6px;">
-                        <input type="text" id="aiChatInput" placeholder="Ask about the balancing..." style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendAiChatMessage();}">
+                    <div style="display: flex; gap: 6px; align-items: flex-end;">
+                        <textarea id="aiChatInput" rows="1" placeholder="Ask about the balancing..." style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; font-family: inherit; resize: none; overflow-y: auto; max-height: 110px; line-height: 1.4;" oninput="autoGrowChatInput(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendAiChatMessage();}"></textarea>
                         <button class="btn-primary" style="padding: 8px 14px; white-space: nowrap;" onclick="sendAiChatMessage()">Send</button>
                     </div>
                 </div>
@@ -3528,19 +3551,28 @@
             appendChatMessage('assistant', starter);
         }
 
+        // Auto-grows the chat textarea as the Admin types, so long
+        // questions wrap and stay fully visible instead of scrolling off
+        // to one side in a fixed single line.
+        function autoGrowChatInput(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+        }
+
         async function sendAiChatMessage() {
             const input = document.getElementById('aiChatInput');
             const text = input.value.trim();
             if (!text) return;
 
             input.value = '';
+            input.style.height = 'auto'; // collapse back to one line
             aiChatHistory.push({ role: 'user', content: text });
             appendChatMessage('user', text);
 
             const container = document.getElementById('aiChatMessages');
             const typingBubble = document.createElement('div');
-            typingBubble.className = 'chat-bubble-typing';
-            typingBubble.textContent = 'Thinking...';
+            typingBubble.className = 'chat-bubble-typing chat-typing-dots';
+            typingBubble.innerHTML = '<span></span><span></span><span></span>';
             container.appendChild(typingBubble);
             container.scrollTop = container.scrollHeight;
 
