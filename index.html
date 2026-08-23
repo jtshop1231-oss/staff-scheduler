@@ -1064,6 +1064,38 @@
             border-radius: 10px;
         }
 
+        /* AI SCHEDULE CHAT — bubble styling */
+        .chat-bubble-ai, .chat-bubble-user {
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 88%;
+            word-wrap: break-word;
+        }
+
+        .chat-bubble-ai {
+            background: #ede7f6;
+            color: #4527a0;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .chat-bubble-user {
+            background: #00a8a8;
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-bubble-typing {
+            background: #ede7f6;
+            color: #9575cd;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            font-style: italic;
+        }
+
         /* PRINT — when printing (triggered from the Saved AI Balance Notes
            "Print" button), show ONLY that section as a clean document,
            hiding the rest of the app entirely. */
@@ -1374,6 +1406,21 @@
                     <button class="btn-primary" id="aiBalanceBtn" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #7c4dff 0%, #512da8 100%); border-color: #512da8;" onclick="aiBalanceSchedule()">🤖 AI Balance Schedule</button>
                     <button class="btn-primary" id="postScheduleBtn" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #ffb300 0%, #b8860b 100%); border-color: #b8860b;" onclick="postSchedule()">📤 POST SCHEDULE</button>
                     <button class="btn-secondary" style="width: 100%;" onclick="backToHomeFromForApproval()">← BACK</button>
+                </div>
+
+                <!-- AI CHAT — scoped strictly to discussing THIS schedule's
+                     balancing. Auto-starts with a question from the AI
+                     right after a balance is saved, so Admin can quickly
+                     react (satisfied? want changes?) without leaving the
+                     page. -->
+                <div class="card" id="aiChatCard" style="margin-top: 16px;">
+                    <h2 style="font-size: 16px;">💬 Ask AI About This Schedule</h2>
+                    <p style="font-size: 11px; color: #888; margin-bottom: 8px;">Scoped to this schedule's balancing only.</p>
+                    <div id="aiChatMessages" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="aiChatInput" placeholder="Ask about the balancing..." style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendAiChatMessage();}">
+                        <button class="btn-primary" style="padding: 8px 14px; white-space: nowrap;" onclick="sendAiChatMessage()">Send</button>
+                    </div>
                 </div>
             </div>
             <div class="center-panel">
@@ -2428,6 +2475,9 @@
             }
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('forApprovalPage').classList.add('active');
+            aiChatHistory = [];
+            aiChatSummaryContext = '';
+            document.getElementById('aiChatMessages').innerHTML = '<div class="chat-bubble-ai" style="opacity:0.7;">Tanungin mo ako tungkol sa pag-balance ng schedule na ito.</div>';
             generateForApprovalSchedule();
         }
 
@@ -3447,6 +3497,78 @@
             document.getElementById('aiSummaryFooterSaved').classList.add('hidden');
         }
 
+        // ============================================================
+        // AI SCHEDULE CHAT — a small, strictly-scoped chat with the AI
+        // about THIS schedule's balancing only (not a general chatbot).
+        // Auto-starts with a question from the AI right after a balance
+        // summary is saved, so Admin can quickly react.
+        // ============================================================
+        let aiChatHistory = []; // [{role: 'user'|'assistant', content: '...'}]
+        let aiChatSummaryContext = '';
+
+        function appendChatMessage(role, text) {
+            const container = document.getElementById('aiChatMessages');
+            const bubble = document.createElement('div');
+            bubble.className = role === 'assistant' ? 'chat-bubble-ai' : 'chat-bubble-user';
+            bubble.textContent = text;
+            container.appendChild(bubble);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Called right after Admin saves an AI Balance summary — resets
+        // the chat for the new schedule and has the AI open with a
+        // check-in question.
+        function startAiChatWithBalanceQuestion(summaryText) {
+            aiChatHistory = [];
+            aiChatSummaryContext = summaryText;
+            document.getElementById('aiChatMessages').innerHTML = '';
+
+            const starter = 'Na-balance ko na ang schedule base sa ating mga panuntunan. Okay ka ba sa pagkakabalanse nito, o may gusto ka bang baguhin?';
+            aiChatHistory.push({ role: 'assistant', content: starter });
+            appendChatMessage('assistant', starter);
+        }
+
+        async function sendAiChatMessage() {
+            const input = document.getElementById('aiChatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            aiChatHistory.push({ role: 'user', content: text });
+            appendChatMessage('user', text);
+
+            const container = document.getElementById('aiChatMessages');
+            const typingBubble = document.createElement('div');
+            typingBubble.className = 'chat-bubble-typing';
+            typingBubble.textContent = 'Nag-iisip...';
+            container.appendChild(typingBubble);
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                const response = await fetch('/api/schedule-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: aiChatHistory,
+                        scheduleSummary: aiChatSummaryContext
+                    })
+                });
+                const result = await response.json();
+                typingBubble.remove();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Chat request failed');
+                }
+
+                aiChatHistory.push({ role: 'assistant', content: result.reply });
+                appendChatMessage('assistant', result.reply);
+            } catch (error) {
+                typingBubble.remove();
+                console.error('AI chat error:', error);
+                appendChatMessage('assistant', 'Pasensya na, may error: ' + error.message);
+            }
+        }
+
         async function saveAiSummary() {
             const unit = appState.selectedAdminUnit;
             const summaryText = document.getElementById('aiSummaryText').textContent;
@@ -3460,6 +3582,7 @@
                 document.getElementById('aiSummaryFooterDefault').classList.add('hidden');
                 document.getElementById('aiSummaryFooterSaved').classList.remove('hidden');
                 loadSavedAiSummary(unit);
+                startAiChatWithBalanceQuestion(summaryText);
             } catch (error) {
                 console.error('Error saving AI summary:', error);
                 alert('Failed to save summary: ' + error.message);
@@ -3490,6 +3613,9 @@
                 if (doc.exists && doc.data().summary) {
                     textEl.textContent = doc.data().summary;
                     section.classList.remove('hidden');
+                    if (!aiChatSummaryContext) {
+                        aiChatSummaryContext = doc.data().summary;
+                    }
                 } else {
                     section.classList.add('hidden');
                 }
