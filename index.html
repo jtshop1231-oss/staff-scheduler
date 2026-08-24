@@ -938,6 +938,14 @@
             font-size: 10px;
         }
 
+        /* Same violet used for the PRE-SET cell background elsewhere —
+           applied here as text color since these names share a cell
+           with other, non-locked staff. */
+        .staff-name-locked {
+            color: #5e35b1;
+            font-weight: 800;
+        }
+
         .date-label-small {
             font-weight: 800;
             margin-bottom: 0px;
@@ -2343,7 +2351,7 @@
                 return '<span class="shift-empty">No one signed up</span>';
             }
 
-            const namesHtml = list.map(name => lockedNames.has(name) ? `${name} 🔒` : name).join(', ');
+            const namesHtml = list.map(name => lockedNames.has(name) ? `<span class="staff-name-locked">${name} 🔒</span>` : name).join(', ');
             let html = `<span class="staff-names">${namesHtml}</span>`;
 
             if (list.length < min) {
