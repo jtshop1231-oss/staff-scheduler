@@ -1,12 +1,18 @@
-const admin = require('firebase-admin');
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore } = require('firebase-admin/firestore');
 
 // Initialize the Firebase Admin SDK once (Vercel may reuse this same
 // function instance across multiple requests, so we guard against
 // re-initializing it every time).
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_ADMIN_KEY))
-  });
+if (!getApps().length) {
+  if (!process.env.FIREBASE_ADMIN_KEY) {
+    console.error('FIREBASE_ADMIN_KEY environment variable is missing.');
+  } else {
+    initializeApp({
+      credential: cert(JSON.parse(process.env.FIREBASE_ADMIN_KEY))
+    });
+  }
 }
 
 module.exports = async (req, res) => {
@@ -14,12 +20,17 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!getApps().length) {
+    return res.status(500).json({ error: 'Server is missing the FIREBASE_ADMIN_KEY environment variable.' });
+  }
+
   const { staffKey } = req.body || {};
   if (!staffKey) {
     return res.status(400).json({ error: 'Missing staffKey' });
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
+  const auth = getAuth();
   const email = `${staffKey}@staffscheduler.local`;
 
   try {
@@ -29,8 +40,8 @@ module.exports = async (req, res) => {
     //    the Firestore side ever existed), just continue instead of
     //    treating that as a failure.
     try {
-      const userRecord = await admin.auth().getUserByEmail(email);
-      await admin.auth().deleteUser(userRecord.uid);
+      const userRecord = await auth.getUserByEmail(email);
+      await auth.deleteUser(userRecord.uid);
     } catch (authError) {
       if (authError.code !== 'auth/user-not-found') {
         throw authError;
