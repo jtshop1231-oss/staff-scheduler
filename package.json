@@ -1,0 +1,7 @@
+{
+  "name": "staff-scheduler",
+  "version": "1.0.0",
+  "dependencies": {
+    "firebase-admin": "^14.2.0"
+  }
+}
