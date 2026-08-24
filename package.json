@@ -3,5 +3,9 @@
   "version": "1.0.0",
   "dependencies": {
     "firebase-admin": "^14.2.0"
+  },
+  "overrides": {
+    "jose": "^4.15.9"
   }
 }
+p
