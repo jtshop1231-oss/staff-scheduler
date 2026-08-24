@@ -1398,6 +1398,12 @@
     <div class="schedule-section edit-card" id="approvedEditCard">
         <h2>✏️ Edit Schedule — <span id="editDateLabel"></span></h2>
 
+        <!-- ENLARGED PREVIEW — mirrors exactly what's shown in the small
+             calendar tile (names, lock icons, Short/Over notes, and the
+             raw Requested note for drafts), just bigger and centered so
+             it's easy to read at a glance before editing. -->
+        <div id="editSlotPreview" style="text-align: center; background: #f5f2fc; border: 1px solid #d8cdf0; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; font-size: 15px; line-height: 1.9;"></div>
+
         <div class="edit-shift-block">
             <h3>☀️ Day Shift</h3>
             <div class="edit-staff-list" id="editDayList"></div>
@@ -1864,6 +1870,7 @@
                 staffRegisterForm.classList.add('hidden');
                 adminForm.classList.add('hidden');
                 adminBtn.classList.add('hidden');
+                setTimeout(() => document.getElementById('staffName').focus(), 0);
             } else {
                 staffForm.classList.add('hidden');
                 staffRegisterForm.classList.add('hidden');
@@ -1874,6 +1881,7 @@
                 // actively choose a Unit, never silently pre-filled with
                 // whatever was used last.
                 document.getElementById('adminLoginUnit').selectedIndex = 0;
+                setTimeout(() => document.getElementById('adminUsername').focus(), 0);
             }
             document.getElementById('changeRoleLink').classList.remove('hidden');
         }
@@ -1894,11 +1902,13 @@
         function showStaffRegisterForm() {
             document.getElementById('staffLoginForm').classList.add('hidden');
             document.getElementById('staffRegisterForm').classList.remove('hidden');
+            setTimeout(() => document.getElementById('regStaffName').focus(), 0);
         }
 
         function showStaffLoginForm() {
             document.getElementById('staffRegisterForm').classList.add('hidden');
             document.getElementById('staffLoginForm').classList.remove('hidden');
+            setTimeout(() => document.getElementById('staffName').focus(), 0);
         }
 
         // SELECT SHIFT (REGISTRATION ONLY — this is the one and only time a
@@ -2501,6 +2511,7 @@
             document.getElementById('adminStaffSelect').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
             document.getElementById('adminPrefGrid').innerHTML = '';
             document.getElementById('adminProposeGrid').innerHTML = '';
+            setTimeout(() => document.getElementById('adminUnitFilter').focus(), 0);
         }
 
         // BACK TO HOME (FROM ADMIN STAFF VIEW)
@@ -3200,6 +3211,25 @@
 
         // OPEN EDIT CARD (ADMIN ONLY) WHEN A DATE SLOT IS CLICKED — edits the
         // live Approved Schedule directly (visible to everyone right away).
+        // Renders the enlarged read-only preview at the top of the edit
+        // card — same content as the small calendar tile (names, lock
+        // icons, Short/Over notes), just bigger and easier to read.
+        function renderEditSlotPreview(dayList, nightList, lockedNames, requestedDay, requestedNight) {
+            const dayDiffers = requestedDay && !(requestedDay.length === dayList.length && requestedDay.every(n => dayList.includes(n)));
+            const nightDiffers = requestedNight && !(requestedNight.length === nightList.length && requestedNight.every(n => nightList.includes(n)));
+
+            let html = `<div><strong>☀️ Day:</strong> ${renderShiftCell(dayList, lockedNames)}</div>`;
+            if (dayDiffers) {
+                html += `<div style="font-size: 12px; color: #999;">(Requested: ${requestedDay.length ? requestedDay.join(', ') : '—'})</div>`;
+            }
+            html += `<div style="margin-top: 8px;"><strong>🌙 Night:</strong> ${renderShiftCell(nightList, lockedNames)}</div>`;
+            if (nightDiffers) {
+                html += `<div style="font-size: 12px; color: #999;">(Requested: ${requestedNight.length ? requestedNight.join(', ') : '—'})</div>`;
+            }
+
+            document.getElementById('editSlotPreview').innerHTML = html;
+        }
+
         async function openApprovedEditCard(dateKey, dateStr) {
             if (!appState.user || appState.user.role !== 'admin') return;
 
@@ -3217,6 +3247,11 @@
             };
 
             document.getElementById('editDateLabel').textContent = dateStr;
+
+            const approvedStaffDir = appState.approvedScheduleStaffDirectory || {};
+            const approvedStaffKeysInUnit = Object.keys(approvedStaffDir).filter(key => approvedStaffDir[key].unit === unit);
+            const lockedNamesByDateApproved = buildLockedNamesByDate(approvedStaffKeysInUnit, approvedStaffDir);
+            renderEditSlotPreview(assignment.day, assignment.night, lockedNamesByDateApproved[dateKey]);
 
             await loadEditRosterForUnit(unit);
             renderEditLists();
@@ -3251,6 +3286,10 @@
             };
 
             document.getElementById('editDateLabel').textContent = dateStr + ' (To Be Posted)';
+
+            const requested = (appState.forApprovalRequestedCache && appState.forApprovalRequestedCache[dateKey]) || { day: [], night: [] };
+            const lockedNamesByDateDraft = appState.forApprovalLockedNamesByDate || {};
+            renderEditSlotPreview(assignment.day, assignment.night, lockedNamesByDateDraft[dateKey], requested.day, requested.night);
 
             await loadEditRosterForUnit(unit);
             renderEditLists();
@@ -3442,7 +3481,9 @@
             // with an auto-computed default (from ON/Available/PTO
             // submissions) for dates Admin hasn't touched yet.
             appState.draftScheduleCache = {};
+            appState.forApprovalRequestedCache = {};
             const lockedNamesByDate = buildLockedNamesByDate(staffKeysInUnit, staffDirectory);
+            appState.forApprovalLockedNamesByDate = lockedNamesByDate;
 
             let html = '<tr>';
             let dayOfWeek = pendingStart.getDay();
@@ -3479,6 +3520,7 @@
                 // sensible starting point Admin can adjust by clicking).
                 const assigned = savedDrafts[dateKey] || { day: [...dayStaff], night: [...nightStaff] };
                 appState.draftScheduleCache[dateKey] = assigned;
+                appState.forApprovalRequestedCache[dateKey] = { day: dayStaff, night: nightStaff };
 
                 // Only show the raw "Requested" note when it actually
                 // differs from what got Assigned (e.g. AI Balance capped it
