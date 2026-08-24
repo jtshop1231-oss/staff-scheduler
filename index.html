@@ -1689,7 +1689,7 @@
                     <p id="rosterSavedText" class="hidden" style="font-size: 11px; color: #00a8a8; font-weight: 700; margin-top: 6px; text-align: center;">✓ Saved</p>
 
                     <button class="btn-danger" style="width: 100%; margin-top: 10px;" onclick="deleteStaffRecord()">🗑️ DELETE STAFF RECORD</button>
-                    <p style="font-size: 10px; color: #999; margin-top: 3px;">Permanently removes their directory entry, Preferences, and Shift Request. Cannot be undone — save/print their info first if needed.</p>
+                    <p style="font-size: 10px; color: #999; margin-top: 3px;">Permanently removes their directory entry, Preferences, Shift Request, AND their login (Authentication) account. Cannot be undone — save/print their info first if needed.</p>
                 </div>
             </div>
 
@@ -2723,12 +2723,16 @@
         }
 
         // ADMIN: PERMANENTLY DELETE A STAFF RECORD — removes their
-        // directory entry, submitted Preferences, and submitted Shift
-        // Request. Works regardless of Active/Inactive status (Admin's
-        // call — e.g. someone who simply stopped showing up). Does NOT
-        // touch their name inside past Approved Schedules, since that is
-        // historical record and should stay accurate to what actually
-        // happened. Cannot be undone, so this asks for confirmation twice.
+        // directory entry, submitted Preferences, submitted Shift
+        // Request, AND their Firebase Authentication login account (via
+        // the /api/delete-staff serverless endpoint, since deleting an
+        // Auth account requires the Admin SDK and cannot be done directly
+        // from the browser). Works regardless of Active/Inactive status
+        // (Admin's call — e.g. someone who simply stopped showing up).
+        // Does NOT touch their name inside past Approved Schedules, since
+        // that is historical record and should stay accurate to what
+        // actually happened. Cannot be undone, so this asks for
+        // confirmation twice.
         async function deleteStaffRecord() {
             const name = document.getElementById('rosterStaffName').value.trim();
             if (!name) {
@@ -2751,23 +2755,30 @@
                     'This removes:\n' +
                     '- Their staff directory entry (Unit, Role, Shift)\n' +
                     '- Their submitted Preferences\n' +
-                    '- Their submitted Shift Request\n\n' +
+                    '- Their submitted Shift Request\n' +
+                    '- Their login (Authentication) account\n\n' +
                     'This will NOT remove their name from past Approved Schedules — that stays as accurate history.\n\n' +
                     'This CANNOT be undone. Save or print their info first if you want to keep a copy.\n\n' +
                     'Continue?'
                 );
                 if (!firstConfirm) return;
 
-                const secondConfirm = confirm(`Are you sure? This is your last chance to cancel — ${data.name}'s record will be permanently deleted.`);
+                const secondConfirm = confirm(`Are you sure? This is your last chance to cancel — ${data.name}'s record and login will be permanently deleted.`);
                 if (!secondConfirm) return;
 
-                const batch = db.batch();
-                batch.delete(db.collection('staffDirectory').doc(staffKey));
-                batch.delete(db.collection('preferences').doc(staffKey));
-                batch.delete(db.collection('shiftRequests').doc(staffKey));
-                await batch.commit();
+                // Calls the serverless endpoint, which deletes BOTH the
+                // Firebase Authentication account (using the Admin SDK —
+                // not possible from the browser) AND the three Firestore
+                // records, in one step.
+                const response = await fetch('/api/delete-staff', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ staffKey })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || 'Delete failed');
 
-                alert(`${data.name}'s record has been deleted.`);
+                alert(`${data.name}'s record and login have been deleted.`);
 
                 document.getElementById('rosterStaffName').value = '';
                 document.getElementById('rosterUnit').selectedIndex = 0;
