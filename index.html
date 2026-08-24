@@ -750,15 +750,19 @@
         }
 
         .shift-short {
+            display: block;
             color: #e53935;
             font-weight: 800;
             font-size: 11px;
+            margin-top: 2px;
         }
 
         .shift-over {
+            display: block;
             color: #b8860b;
             font-weight: 800;
             font-size: 11px;
+            margin-top: 2px;
         }
 
         /* PREFERENCE PAGE */
@@ -2164,6 +2168,7 @@
             document.getElementById('approvedSchedule').classList.toggle('admin-editable', appState.user.role === 'admin');
 
             startApprovedScheduleSync(getActiveApprovedUnit());
+            startApprovedStaffDirSync(getActiveApprovedUnit());
             startSettingsSync(getActiveApprovedUnit());
 
             document.getElementById('centerPanel').classList.remove('hidden');
@@ -2279,6 +2284,7 @@
             const activeUnit = getActiveApprovedUnit();
             startSettingsSync(activeUnit);
             startApprovedScheduleSync(activeUnit);
+            startApprovedStaffDirSync(activeUnit);
         }
 
         // ADMIN: UPDATE MINIMUM REQUIRED STAFF PER SHIFT (used to flag short-staffed shifts in red)
@@ -2302,21 +2308,40 @@
         // BUILD THE DAY/NIGHT SHIFT CELL TEXT: shows "No one signed up" in red
         // when empty, or the staff names plus a red "(Short by N)" note when
         // the assigned count is below Admin's configured minimum.
-        function renderShiftCell(list) {
+        // Builds a lookup of dateKey -> Set of staff NAMES who have that
+        // date Pre-Set (locked) by Admin, from each staff's lockedDates.
+        // Used so the 🔒 marker shows consistently on both the Pending
+        // Approval and Approved Schedule calendars.
+        function buildLockedNamesByDate(staffKeysInUnit, staffDirectory) {
+            const lockedNamesByDate = {};
+            staffKeysInUnit.forEach((key) => {
+                const entry = staffDirectory[key];
+                if (!entry || !Array.isArray(entry.lockedDates)) return;
+                entry.lockedDates.forEach((dateKey) => {
+                    if (!lockedNamesByDate[dateKey]) lockedNamesByDate[dateKey] = new Set();
+                    lockedNamesByDate[dateKey].add(entry.name);
+                });
+            });
+            return lockedNamesByDate;
+        }
+
+        function renderShiftCell(list, lockedNames) {
             const min = appState.minStaffPerShift || 4;
+            lockedNames = lockedNames || new Set();
 
             if (list.length === 0) {
                 return '<span class="shift-empty">No one signed up</span>';
             }
 
-            let html = `<span class="staff-names">${list.join(', ')}</span>`;
+            const namesHtml = list.map(name => lockedNames.has(name) ? `${name} 🔒` : name).join(', ');
+            let html = `<span class="staff-names">${namesHtml}</span>`;
 
             if (list.length < min) {
                 const shortBy = min - list.length;
-                html += ` <span class="shift-short">(Short by ${shortBy})</span>`;
+                html += `<span class="shift-short">⚠️ Shift short by ${shortBy}</span>`;
             } else if (list.length > min) {
                 const overBy = list.length - min;
-                html += ` <span class="shift-over">(Over by ${overBy})</span>`;
+                html += `<span class="shift-over">Shift over by ${overBy}</span>`;
             }
 
             return html;
@@ -2805,7 +2830,7 @@
 
         // Builds the Preferences grid HTML for one staff member's data.
         function renderPreferenceGridForStaff(staffKey, preferences, lockedDates) {
-            const prefLabels = { on: 'Request ON', off: 'Request OFF', pto: 'Request PTO' };
+            const prefLabels = { on: 'Request ON', off: 'Unavailable', pto: 'Request PTO' };
             let prefHtml = '';
             let currentDate = new Date(pendingStart);
 
@@ -2832,7 +2857,7 @@
 
         // Builds the Shift Request grid HTML for one staff member's data.
         function renderProposeGridForStaff(staffKey, proposedShift, lockedDates) {
-            const proposeLabels = { on: 'ON Shift', off: 'OFF Shift', available: 'Available', pto: 'Request PTO' };
+            const proposeLabels = { on: 'ON Shift', off: 'Unavailable', available: 'Available', pto: 'Request PTO' };
             let proposeHtml = '';
             let currentDate = new Date(pendingStart);
 
@@ -2936,6 +2961,7 @@
             auth.signOut().catch((error) => console.error('Sign out error:', error));
 
             stopApprovedScheduleSync();
+            stopApprovedStaffDirSync();
             stopSettingsSync();
             stopStaffDirectoryListSync();
             stopAdminStaffTablesSync();
@@ -3045,6 +3071,44 @@
             approvedScheduleUnsubscribeUnit = null;
         }
 
+        // Live-syncs staffDirectory (for lockedDates) so the Approved
+        // Schedule can show the same 🔒 lock icon next to a pre-set
+        // staff member's name as the Pending Approval calendar does.
+        // Admin-only: a regular staff member doesn't have permission to
+        // list the whole staffDirectory (only their own record), and
+        // doesn't need to see other staff's lock status here.
+        let approvedStaffDirUnsubscribe = null;
+        let approvedStaffDirUnsubscribeUnit = null;
+
+        function startApprovedStaffDirSync(unit) {
+            if (!unit || !appState.user || appState.user.role !== 'admin') {
+                stopApprovedStaffDirSync();
+                appState.approvedScheduleStaffDirectory = {};
+                return;
+            }
+            if (approvedStaffDirUnsubscribeUnit === unit && approvedStaffDirUnsubscribe) return;
+
+            stopApprovedStaffDirSync();
+            approvedStaffDirUnsubscribeUnit = unit;
+
+            approvedStaffDirUnsubscribe = db.collection('staffDirectory').onSnapshot((snapshot) => {
+                const directory = {};
+                snapshot.forEach((doc) => { directory[doc.id] = doc.data(); });
+                appState.approvedScheduleStaffDirectory = directory;
+                renderApprovedSchedule();
+            }, (error) => {
+                console.error(`Approved schedule staff directory sync error (${unit}):`, error);
+            });
+        }
+
+        function stopApprovedStaffDirSync() {
+            if (approvedStaffDirUnsubscribe) {
+                approvedStaffDirUnsubscribe();
+                approvedStaffDirUnsubscribe = null;
+            }
+            approvedStaffDirUnsubscribeUnit = null;
+        }
+
         // ONE-TIME SEED: creates a blank day/night document for every date
         // in the approved range for THIS UNIT ONLY, if that unit has no
         // Approved Schedule documents yet.
@@ -3089,6 +3153,10 @@
             const body = document.getElementById('scheduleBody');
             header.innerHTML = '<th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>';
 
+            const staffDirectory = appState.approvedScheduleStaffDirectory || {};
+            const staffKeysInUnit = Object.keys(staffDirectory).filter(key => staffDirectory[key].unit === activeUnit);
+            const lockedNamesByDate = buildLockedNamesByDate(staffKeysInUnit, staffDirectory);
+
             let html = '<tr>';
             let dayOfWeek = approvedStart.getDay();
             let currentDate = new Date(approvedStart);
@@ -3110,10 +3178,10 @@
                 html += `<td onclick="openApprovedEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Day:</span> ${renderShiftCell(assignment.day)}
+                        <span class="shift-label">Day:</span> ${renderShiftCell(assignment.day, lockedNamesByDate[dateKey])}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Night:</span> ${renderShiftCell(assignment.night)}
+                        <span class="shift-label">Night:</span> ${renderShiftCell(assignment.night, lockedNamesByDate[dateKey])}
                     </div>
                 </td>`;
 
@@ -3374,6 +3442,7 @@
             // with an auto-computed default (from ON/Available/PTO
             // submissions) for dates Admin hasn't touched yet.
             appState.draftScheduleCache = {};
+            const lockedNamesByDate = buildLockedNamesByDate(staffKeysInUnit, staffDirectory);
 
             let html = '<tr>';
             let dayOfWeek = pendingStart.getDay();
@@ -3423,11 +3492,11 @@
                 html += `<td onclick="openDraftEditCard('${dateKey}', '${dateStr}')">
                     <div class="date-cell">${dateStr}</div>
                     <div class="shift-info">
-                        <span class="shift-label">Day:</span> ${renderShiftCell(assigned.day)}
+                        <span class="shift-label">Day:</span> ${renderShiftCell(assigned.day, lockedNamesByDate[dateKey])}
                         ${dayDiffers ? `<div style="font-size: 9px; color: #999;">(Requested: ${dayStaff.length ? dayStaff.join(', ') : '—'})</div>` : ''}
                     </div>
                     <div class="shift-info">
-                        <span class="shift-label">Night:</span> ${renderShiftCell(assigned.night)}
+                        <span class="shift-label">Night:</span> ${renderShiftCell(assigned.night, lockedNamesByDate[dateKey])}
                         ${nightDiffers ? `<div style="font-size: 9px; color: #999;">(Requested: ${nightStaff.length ? nightStaff.join(', ') : '—'})</div>` : ''}
                     </div>
                 </td>`;
@@ -4026,7 +4095,7 @@
                     <select class="pref-select" id="select-${dateKey}" onchange="handlePrefChange('${dateKey}', this.value)">
                         <option value="">-- Select --</option>
                         <option value="on">Request ON</option>
-                        <option value="off">Request OFF</option>
+                        <option value="off">Unavailable</option>
                     </select>
                 </div>`;
 
@@ -4207,7 +4276,7 @@
                     <select class="pref-select" id="propose-select-${dateKey}" onchange="handleProposeChange('${dateKey}', this.value)">
                         <option value="">-- Select --</option>
                         <option value="on">ON Shift</option>
-                        <option value="off">OFF Shift</option>
+                        <option value="off">Unavailable</option>
                         <option value="available">Available Shift</option>
                         <option value="pto">Request PTO</option>
                     </select>
