@@ -3946,17 +3946,18 @@
                         }
                     });
 
-                    // PRIMARY FCFS reference = Preferences submission time.
-                    // FALLBACK = Shift Request submission time, only used if
-                    // the staff never submitted Preferences.
+                    // PRIMARY FCFS reference = Shift Request submission time
+                    // (the staff's final, specific commitment for this
+                    // cycle). FALLBACK = Preferences submission time, only
+                    // used if the staff never submitted a Shift Request.
                     let fcfsTimestamp = null;
                     let fcfsSource = null;
-                    if (prefSubmission._submittedAt && typeof prefSubmission._submittedAt.toMillis === 'function') {
-                        fcfsTimestamp = prefSubmission._submittedAt.toMillis();
-                        fcfsSource = 'preferences';
-                    } else if (shiftReqSubmission._submittedAt && typeof shiftReqSubmission._submittedAt.toMillis === 'function') {
+                    if (shiftReqSubmission._submittedAt && typeof shiftReqSubmission._submittedAt.toMillis === 'function') {
                         fcfsTimestamp = shiftReqSubmission._submittedAt.toMillis();
                         fcfsSource = 'shiftRequest';
+                    } else if (prefSubmission._submittedAt && typeof prefSubmission._submittedAt.toMillis === 'function') {
+                        fcfsTimestamp = prefSubmission._submittedAt.toMillis();
+                        fcfsSource = 'preferences';
                     }
 
                     const staffShift = staffDirectory[key].shift;
@@ -4471,7 +4472,8 @@
 
             try {
                 // Preserve original submission timestamp (see submitProposedShift
-                // for why) — used as the PRIMARY FCFS reference for AI Balance.
+                // for why) — used as the FALLBACK FCFS reference for AI
+                // Balance, if the staff never submitted a Shift Request.
                 const existingDoc = await db.collection('preferences').doc(appState.staffKey).get();
                 const submissionData = { ...appState.preferences };
                 if (existingDoc.exists && existingDoc.data()._submittedAt) {
