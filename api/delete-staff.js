@@ -48,11 +48,12 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2. Delete the three Firestore records tied to this staff member.
+    // 2. Delete the Firestore records tied to this staff member.
     const batch = db.batch();
     batch.delete(db.collection('staffDirectory').doc(staffKey));
     batch.delete(db.collection('preferences').doc(staffKey));
     batch.delete(db.collection('shiftRequests').doc(staffKey));
+    batch.delete(db.collection('loginLookup').doc(staffKey));
     await batch.commit();
 
     return res.status(200).json({ success: true });
