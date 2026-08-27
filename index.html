@@ -1228,11 +1228,13 @@
 
                     <p id="changeRoleLink" class="hidden" style="font-size: 11px; color: #bb0b0b; cursor: pointer; text-decoration: underline; margin-bottom: 10px;" onclick="resetRoleSelection()">↺ Change role</p>
 
-                    <!-- STAFF LOGIN (existing account) -->
+                    <!-- STAFF LOGIN (existing account) — accepts either the
+                         staff's Name OR Email as the identifier. See
+                         loginStaff() for the resolution logic. -->
                     <div id="staffLoginForm" class="login-container hidden">
                         <div class="form-group">
-                            <label>Your Name</label>
-                            <input type="text" id="staffName" placeholder="Enter name" autocomplete="off" onkeypress="handleEnter(event, 'staff')">
+                            <label>Name or Email</label>
+                            <input type="text" id="staffName" placeholder="Enter name or email" autocomplete="off" onkeypress="handleEnter(event, 'staff')">
                         </div>
 
                         <div class="form-group">
@@ -1255,6 +1257,11 @@
                         </div>
 
                         <div class="form-group">
+                            <label>Your Email</label>
+                            <input type="email" id="regEmail" placeholder="you@example.com" autocomplete="off">
+                        </div>
+
+                        <div class="form-group">
                             <label>Department / Unit</label>
                             <select id="regUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateRoleOptions('regUnit', 'regRole')">
                                 <option value="" selected disabled>Select your Unit/Department</option>
@@ -1268,6 +1275,16 @@
                             <label>Role / Position</label>
                             <select id="regRole" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
                                 <option value="" selected disabled>-- Select Unit first --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Employment Type</label>
+                            <select id="regEmploymentType" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                                <option value="" selected disabled>-- Select Employment Type --</option>
+                                <option value="Full Time">Full Time</option>
+                                <option value="Part Time">Part Time</option>
+                                <option value="PRN">PRN</option>
                             </select>
                         </div>
 
@@ -1678,6 +1695,16 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Employment Type</label>
+                        <select id="rosterEmploymentType" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
+                            <option value="" selected disabled>-- Select Employment Type --</option>
+                            <option value="Full Time">Full Time</option>
+                            <option value="Part Time">Part Time</option>
+                            <option value="PRN">PRN</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
                             <input type="checkbox" id="rosterActive" checked style="width: auto;">
                             Currently Active (uncheck if resigned/terminated)
@@ -2011,14 +2038,25 @@
             return name.trim().toLowerCase().replace(/\s+/g, '') + '@staffscheduler.local';
         }
 
-        // LOGIN STAFF (existing account — Name + Password only. Unit and
+        // LOGIN STAFF (existing account — Name-or-Email + Password. Unit and
         // Shift are NOT asked here; they were fixed permanently at Register.)
+        //
+        // The identifier field accepts EITHER:
+        //   - An email address (contains '@') — used directly as the
+        //     Firebase Auth login email. This covers staff who registered
+        //     with a real email (new-style accounts).
+        //   - A name — resolved to an email via the 'loginLookup' collection
+        //     (a minimal, publicly-readable name->email index — see
+        //     registerStaff() for how entries get created). Falls back to
+        //     the old synthetic name@staffscheduler.local pattern if no
+        //     loginLookup entry exists yet (covers old-style accounts that
+        //     haven't been backfilled — see the backfill step below).
         async function loginStaff() {
-            const name = document.getElementById('staffName').value.trim();
+            const identifier = document.getElementById('staffName').value.trim();
             const password = document.getElementById('staffPassword').value;
 
-            if (!name) {
-                alert('Please enter your name');
+            if (!identifier) {
+                alert('Please enter your name or email');
                 return;
             }
             if (!password) {
@@ -2026,7 +2064,25 @@
                 return;
             }
 
-            const email = nameToStaffEmail(name);
+            const isEmailInput = identifier.includes('@');
+            let email = null;
+            let staffKeyFromNameLookup = null;
+
+            if (isEmailInput) {
+                email = identifier;
+            } else {
+                // Name path: try the loginLookup index first (works for
+                // both old and new accounts once backfilled), falling back
+                // to the legacy synthetic pattern if no entry exists yet.
+                staffKeyFromNameLookup = nameToStaffEmail(identifier).split('@')[0];
+                try {
+                    const lookupDoc = await db.collection('loginLookup').doc(staffKeyFromNameLookup).get();
+                    email = (lookupDoc.exists && lookupDoc.data().email) ? lookupDoc.data().email : nameToStaffEmail(identifier);
+                } catch (lookupError) {
+                    console.error('loginLookup read error, falling back to legacy pattern:', lookupError);
+                    email = nameToStaffEmail(identifier);
+                }
+            }
 
             if (isLockedOut(email)) {
                 alert(`Too many failed attempts. Please try again in ${getLockoutRemainingSeconds(email)} seconds.`);
@@ -2037,21 +2093,53 @@
                 await auth.signInWithEmailAndPassword(email, password);
                 clearLoginAttempts(email);
 
-                const staffKey = email.split('@')[0];
+                // Determine staffKey (the staffDirectory doc id):
+                //   - Name path: staffKey is always the sanitized name,
+                //     regardless of which real email is behind it.
+                //   - Email path: try the legacy pattern first (old-style
+                //     synthetic email, local part == staffKey); if that
+                //     doc doesn't exist, query staffDirectory by authEmail
+                //     (new-style real-email account).
+                let staffKey = staffKeyFromNameLookup;
+                let directoryDoc = null;
 
-                const directoryDoc = await db.collection('staffDirectory').doc(staffKey).get();
-                if (!directoryDoc.exists) {
+                if (staffKey) {
+                    directoryDoc = await db.collection('staffDirectory').doc(staffKey).get();
+                } else {
+                    const legacyKey = email.split('@')[0];
+                    const legacyDoc = await db.collection('staffDirectory').doc(legacyKey).get();
+                    if (legacyDoc.exists) {
+                        staffKey = legacyKey;
+                        directoryDoc = legacyDoc;
+                    } else {
+                        const query = await db.collection('staffDirectory').where('authEmail', '==', email).limit(1).get();
+                        if (!query.empty) {
+                            staffKey = query.docs[0].id;
+                            directoryDoc = query.docs[0];
+                        }
+                    }
+                }
+
+                if (!directoryDoc || !directoryDoc.exists) {
                     // Shouldn't normally happen — Register always creates this.
                     alert('No staff record found for this account. Please contact Admin.');
                     auth.signOut();
                     return;
                 }
-                const { unit, shift, role } = directoryDoc.data();
+                const { name, unit, shift, role } = directoryDoc.data();
                 const lockedDates = Array.isArray(directoryDoc.data().lockedDates) ? directoryDoc.data().lockedDates : [];
 
                 appState.user = { role: 'staff', name, shift, unit, staffRole: role || '' };
                 appState.staffKey = staffKey;
                 appState.lockedDates = lockedDates;
+
+                // Opportunistically backfill/refresh the loginLookup entry
+                // for this staff member — this is what lets an old-style
+                // account (registered before this feature existed) become
+                // name-or-email searchable after just one successful login,
+                // with no manual migration needed.
+                db.collection('loginLookup').doc(staffKey).set({ name, email }, { merge: true })
+                    .catch(error => console.error('loginLookup backfill error:', error));
 
                 // Restore their previously submitted Preferences + Shift Request
                 // from Firestore, so re-logging in continues where they left off.
@@ -2071,16 +2159,22 @@
             } catch (error) {
                 recordFailedLoginAttempt(email);
                 console.error('Staff login error:', error);
-                alert('Incorrect name or password.');
+                alert('Incorrect name/email or password.');
             }
         }
 
         // REGISTER STAFF (new account — the ONE time Unit + Shift are set;
-        // this becomes their permanent designation from here on)
+        // this becomes their permanent designation from here on). Uses the
+        // staff's REAL email as their Firebase Auth login credential (so
+        // Firebase's built-in "forgot password" flow works for them), while
+        // the staffDirectory doc id (staffKey) stays name-based as before —
+        // this is what lets them log in with either their name or email.
         async function registerStaff() {
             const name = document.getElementById('regStaffName').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
             const unit = document.getElementById('regUnit').value;
             const role = document.getElementById('regRole').value;
+            const employmentType = document.getElementById('regEmploymentType').value;
             const shift = appState.selectedRegShift;
             const password = document.getElementById('regPassword').value;
             const confirmPassword = document.getElementById('regConfirmPassword').value;
@@ -2089,12 +2183,20 @@
                 alert('Please enter your name');
                 return;
             }
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                alert('Please enter a valid email address');
+                return;
+            }
             if (!unit) {
                 alert('Please select your Unit/Department');
                 return;
             }
             if (!role) {
                 alert('Please select your Role/Position');
+                return;
+            }
+            if (!employmentType) {
+                alert('Please select your Employment Type');
                 return;
             }
             if (!shift) {
@@ -2110,13 +2212,17 @@
                 return;
             }
 
-            const email = nameToStaffEmail(name);
-            const staffKey = email.split('@')[0];
+            const staffKey = nameToStaffEmail(name).split('@')[0];
 
             try {
                 await auth.createUserWithEmailAndPassword(email, password);
 
-                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, role, shift, active: true });
+                await db.collection('staffDirectory').doc(staffKey).set({ name, unit, role, shift, employmentType, authEmail: email, active: true });
+
+                // Creates the name->email entry that makes name-based login
+                // work going forward, even though the real Auth email is
+                // now different from the old synthetic pattern.
+                await db.collection('loginLookup').doc(staffKey).set({ name, email });
 
                 appState.user = { role: 'staff', name, shift, unit, staffRole: role };
                 appState.staffKey = staffKey;
@@ -2660,6 +2766,7 @@
                         populateRoleOptions('rosterUnit', 'rosterRole', data.role);
                     }
                     if (data.shift) document.getElementById('rosterShift').value = data.shift;
+                    if (data.employmentType) document.getElementById('rosterEmploymentType').value = data.employmentType;
                     document.getElementById('rosterActive').checked = data.active !== false;
                 }
             } catch (error) {
@@ -2672,6 +2779,7 @@
             const unit = document.getElementById('rosterUnit').value;
             const role = document.getElementById('rosterRole').value;
             const shift = document.getElementById('rosterShift').value;
+            const employmentType = document.getElementById('rosterEmploymentType').value;
             const active = document.getElementById('rosterActive').checked;
 
             if (!name) {
@@ -2690,6 +2798,10 @@
                 alert('Please select the Designated Shift');
                 return;
             }
+            if (!employmentType) {
+                alert('Please select the Employment Type');
+                return;
+            }
 
             const staffKey = nameToStaffEmail(name).split('@')[0];
 
@@ -2701,7 +2813,7 @@
                 }
 
                 await db.collection('staffDirectory').doc(staffKey).set(
-                    { name, unit, role, shift, active },
+                    { name, unit, role, shift, employmentType, active },
                     { merge: true }
                 );
 
@@ -2713,6 +2825,7 @@
                 document.getElementById('rosterUnit').selectedIndex = 0;
                 document.getElementById('rosterRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
                 document.getElementById('rosterShift').selectedIndex = 0;
+                document.getElementById('rosterEmploymentType').selectedIndex = 0;
                 document.getElementById('rosterActive').checked = true;
 
                 populateAdminStaffSelect();
@@ -2784,6 +2897,7 @@
                 document.getElementById('rosterUnit').selectedIndex = 0;
                 document.getElementById('rosterRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
                 document.getElementById('rosterShift').selectedIndex = 0;
+                document.getElementById('rosterEmploymentType').selectedIndex = 0;
                 document.getElementById('rosterActive').checked = true;
 
                 populateAdminStaffSelect();
@@ -3044,8 +3158,10 @@
             document.getElementById('staffName').value = '';
             document.getElementById('staffPassword').value = '';
             document.getElementById('regStaffName').value = '';
+            document.getElementById('regEmail').value = '';
             document.getElementById('regUnit').selectedIndex = 0;
             document.getElementById('regRole').innerHTML = '<option value="" selected disabled>-- Select Unit first --</option>';
+            document.getElementById('regEmploymentType').selectedIndex = 0;
             document.getElementById('regPassword').value = '';
             document.getElementById('regConfirmPassword').value = '';
             document.getElementById('adminUsername').value = '';
