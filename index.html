@@ -4793,7 +4793,11 @@
                 return;
             }
 
-            if (Object.keys(appState.proposedShift).length === 0) {
+            // Same fix as Preferences page — exclude "_submittedAt" so a
+            // previously-submitted-then-cleared record doesn't silently
+            // bypass this check.
+            const realProposeKeys = Object.keys(appState.proposedShift).filter(k => k !== '_submittedAt');
+            if (realProposeKeys.length === 0) {
                 alert('Please select at least one date!');
                 return;
             }
@@ -4832,7 +4836,14 @@
                 return;
             }
 
-            if (Object.keys(appState.preferences).length === 0) {
+            // Exclude the "_submittedAt" metadata key when checking for
+            // emptiness — otherwise, a staff member who previously
+            // submitted (their doc already has _submittedAt loaded into
+            // appState.preferences) and then cleared every selection back
+            // to blank would silently pass this check, since the object
+            // wouldn't actually be empty (just that one leftover key).
+            const realPrefKeys = Object.keys(appState.preferences).filter(k => k !== '_submittedAt');
+            if (realPrefKeys.length === 0) {
                 alert('Please select at least one date!');
                 return;
             }
