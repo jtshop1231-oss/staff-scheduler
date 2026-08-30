@@ -1785,6 +1785,20 @@
         </div>
     </div>
 
+    <!-- SHIFT REQUEST: same incomplete-week reminder as Preferences, but
+         scoped separately (own tracking, own overlay) since it's a
+         different page/data model. -->
+    <div class="ai-balance-overlay" id="proposeWeekWarningOverlay">
+        <div class="ai-balance-card" style="max-width: 380px; text-align: center;">
+            <h2 style="color: #b8860b;">⚠️ Heads Up</h2>
+            <p id="proposeWeekWarningText" style="color: #2c5f7f; font-weight: 600; font-size: 14px; line-height: 1.6; margin: 12px 0;"></p>
+            <div class="preference-buttons">
+                <button class="btn-secondary" onclick="proposeWeekReminderBack()">← Back</button>
+                <button class="btn-primary" onclick="proposeWeekReminderContinue()">Continue</button>
+            </div>
+        </div>
+    </div>
+
     <script>
 
         // APP STATE
@@ -4618,6 +4632,11 @@
             let html = '';
             let currentDate = new Date(pendingStart);
 
+            // Tracks which weeks have already been acknowledged via the
+            // incomplete-week reminder's "Continue" button this visit.
+            appState.proposeWeekAcknowledged = new Set();
+            appState.proposePendingReminder = null;
+
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -4659,6 +4678,18 @@
                 }
             }
 
+            // Captured BEFORE applying the change, so the incomplete-week
+            // reminder's "Back" button can restore this exact prior value.
+            const previousValue = appState.proposedShift[dateKey];
+
+            applyProposeCellValue(dateKey, value);
+            checkEarlierIncompleteWeekPropose(dateKey, previousValue);
+        }
+
+        // Applies a value (or clears it) to one Shift Request cell — both
+        // the data model and the visual cell styling. Split out so the
+        // "Back" revert path can reuse it.
+        function applyProposeCellValue(dateKey, value) {
             const cell = document.querySelector(`#proposeShiftPage .preference-cell[data-key="${dateKey}"]`);
             cell.classList.remove('pref-on', 'pref-off', 'pref-available', 'pref-pto');
 
@@ -4668,6 +4699,68 @@
             } else {
                 delete appState.proposedShift[dateKey];
             }
+
+            const select = document.getElementById(`propose-select-${dateKey}`);
+            if (select) select.value = value || '';
+        }
+
+        // Weekly ON-Shift stats for the Shift Request page — same idea as
+        // getPreferenceWeeklyStats(), just reading appState.proposedShift.
+        function getProposeWeeklyStats() {
+            const weeks = [];
+            let cursor = new Date(pendingStart);
+            while (cursor <= pendingEnd) {
+                const weekKeys = getWeekDateKeys(dateToKey(cursor));
+                const onCount = weekKeys.filter(k => appState.proposedShift[k] === 'on').length;
+                weeks.push({ startKey: weekKeys[0], endKey: weekKeys[6], onCount });
+                cursor.setDate(cursor.getDate() + 7);
+            }
+            return weeks;
+        }
+
+        // INCOMPLETE-WEEK REMINDER for Shift Request — same behavior as
+        // the Preferences page version: flags the earliest earlier week
+        // with fewer than 3 "ON Shift" days the moment a later week is
+        // touched. "Continue" acknowledges it (e.g. an intentional PTO
+        // week); "Back" undoes the selection that triggered the check.
+        function checkEarlierIncompleteWeekPropose(triggeringDateKey, previousValue) {
+            if (!appState.proposeWeekAcknowledged) appState.proposeWeekAcknowledged = new Set();
+
+            const weeks = getProposeWeeklyStats();
+            const currentWeekStart = getWeekDateKeys(triggeringDateKey)[0];
+            const currentIndex = weeks.findIndex(w => w.startKey === currentWeekStart);
+            if (currentIndex <= 0) return;
+
+            const earlierIncomplete = weeks.slice(0, currentIndex).find(
+                w => w.onCount < 3 && !appState.proposeWeekAcknowledged.has(w.startKey)
+            );
+            if (!earlierIncomplete) return;
+
+            appState.proposePendingReminder = { weekStartKey: earlierIncomplete.startKey, triggeringDateKey, previousValue };
+
+            const startLabel = keyToDate(earlierIncomplete.startKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const endLabel = keyToDate(earlierIncomplete.endKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            document.getElementById('proposeWeekWarningText').textContent =
+                `The week of ${startLabel} - ${endLabel} is not complete yet (only ${earlierIncomplete.onCount} of 3 "ON Shift" days). Are you sure you want to proceed?`;
+            document.getElementById('proposeWeekWarningOverlay').classList.add('active');
+        }
+
+        function proposeWeekReminderContinue() {
+            if (appState.proposePendingReminder) {
+                if (!appState.proposeWeekAcknowledged) appState.proposeWeekAcknowledged = new Set();
+                appState.proposeWeekAcknowledged.add(appState.proposePendingReminder.weekStartKey);
+            }
+            appState.proposePendingReminder = null;
+            document.getElementById('proposeWeekWarningOverlay').classList.remove('active');
+        }
+
+        function proposeWeekReminderBack() {
+            const pending = appState.proposePendingReminder;
+            if (pending) {
+                applyProposeCellValue(pending.triggeringDateKey, pending.previousValue || '');
+            }
+            appState.proposePendingReminder = null;
+            document.getElementById('proposeWeekWarningOverlay').classList.remove('active');
         }
 
         // SUBMIT MY PROPOSE SHIFT
