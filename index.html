@@ -2383,6 +2383,7 @@
                     db.collection('settings').doc(unit).set({
                         proposeShiftOpen: true,
                         minStaffPerShift: 4,
+                        cycleNumber: 0,
                         approvedStart: dateToKey(approvedStart),
                         approvedEnd: dateToKey(approvedEnd),
                         pendingStart: dateToKey(pendingStart),
@@ -2394,6 +2395,7 @@
                 const data = doc.data();
                 appState.proposeShiftOpen = data.proposeShiftOpen !== false;
                 appState.minStaffPerShift = data.minStaffPerShift || 4;
+                appState.cycleNumber = data.cycleNumber || 0;
 
                 // Detect whether the date range actually changed (e.g. Admin
                 // just posted a new schedule) so we know whether to rebuild
@@ -4056,19 +4058,24 @@
                 }
 
                 // ============================================================
-                // QUARTERLY-ROTATING PRIORITY ORDER — computed here in JS
-                // (not left to the AI to reason about) so it's exact and
-                // repeatable. Every calendar quarter, the tie-break order
-                // among staff rotates, so the same early submitter doesn't
-                // permanently keep first pick forever.
+                // CYCLE-ROTATING PRIORITY ORDER — computed here in JS (not
+                // left to the AI to reason about) so it's exact and
+                // repeatable. Every time Admin posts a new Approved
+                // Schedule for this unit (POST SCHEDULE), cycleNumber
+                // advances by 1 (see postSchedule()) — the tie-break order
+                // among staff rotates on that same cadence, so the same
+                // early submitter doesn't permanently keep first pick
+                // forever. Using the actual cycle count (instead of
+                // calendar quarters) keeps this correctly in sync even
+                // though a 6-week cycle doesn't line up evenly with a
+                // 3-month quarter.
                 // ============================================================
-                const quarterNum = Math.floor(pendingStart.getMonth() / 3);
-                const quarterIndex = pendingStart.getFullYear() * 4 + quarterNum;
+                const cycleNumber = appState.cycleNumber || 0;
                 const baseOrder = [...staffKeysInUnit].sort(); // stable alphabetical baseline
-                const rotationOffset = baseOrder.length > 0 ? quarterIndex % baseOrder.length : 0;
+                const rotationOffset = baseOrder.length > 0 ? cycleNumber % baseOrder.length : 0;
                 const rotatedOrder = baseOrder.slice(rotationOffset).concat(baseOrder.slice(0, rotationOffset));
                 const priorityRankByKey = {};
-                rotatedOrder.forEach((key, idx) => { priorityRankByKey[key] = idx + 1; }); // 1 = highest priority this quarter
+                rotatedOrder.forEach((key, idx) => { priorityRankByKey[key] = idx + 1; }); // 1 = highest priority this cycle
 
                 // Build the staff payload with everything AI needs.
                 const staffPayload = staffKeysInUnit.map((key) => {
@@ -4118,7 +4125,7 @@
                         previousWeekdays: getPreviousWeekdaysFor(staffDirectory[key].name, staffShift),
                         fcfsTimestamp,
                         fcfsSource,
-                        quarterlyPriorityRank: priorityRankByKey[key],
+                        cyclePriorityRank: priorityRankByKey[key],
                         statusByDate
                     };
                 });
@@ -4307,7 +4314,12 @@
                     approvedEnd: dateToKey(newApprovedEnd),
                     pendingStart: dateToKey(newPendingStart),
                     pendingEnd: dateToKey(newPendingEnd),
-                    proposeShiftOpen: true // reopen Shift Request for the new cycle
+                    proposeShiftOpen: true, // reopen Shift Request for the new cycle
+                    // Advances the per-unit cycle counter used for
+                    // rotating AI Balance's tie-break priority order —
+                    // this is what keeps the same early submitter from
+                    // permanently holding first pick every cycle.
+                    cycleNumber: (appState.cycleNumber || 0) + 1
                 }, { merge: true });
 
                 // The saved AI Balance summary belonged to the cycle that
