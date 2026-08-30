@@ -4534,15 +4534,15 @@
         }
 
         // INCOMPLETE-WEEK REMINDER — the moment a staff member selects a
-        // value in a week that comes AFTER some earlier week which still
-        // has fewer than 3 "ON" days, show a heads-up. This catches
-        // skipped-over weeks (not just the immediately previous one), so
-        // e.g. Weeks 1-3 being fine but Week 4 being left incomplete still
-        // gets caught the moment they touch Week 5 or later. Not a hard
-        // block: "Continue" acknowledges that week (won't ask again this
-        // visit — useful for an intentional PTO/vacation week), "Back"
-        // undoes the selection that triggered this check, keeping their
-        // attention on the earlier gap first.
+        // value in a week that comes AFTER one or more earlier weeks which
+        // still have fewer than 3 "ON" days, show a heads-up listing EVERY
+        // such earlier week (not just the nearest one) — so if, say, two
+        // weeks back are both incomplete, both are named with their own
+        // detail in a single reminder rather than one at a time. Not a
+        // hard block: "Continue" acknowledges ALL listed weeks (won't ask
+        // again about them this visit — useful for an intentional
+        // PTO/vacation stretch), "Back" undoes the selection that
+        // triggered this check, keeping attention on the earlier gaps.
         function checkEarlierIncompleteWeek(triggeringDateKey, previousValue) {
             if (!appState.prefWeekAcknowledged) appState.prefWeekAcknowledged = new Set();
 
@@ -4551,26 +4551,37 @@
             const currentIndex = weeks.findIndex(w => w.startKey === currentWeekStart);
             if (currentIndex <= 0) return; // first week, or not found — nothing earlier to check
 
-            const earlierIncomplete = weeks.slice(0, currentIndex).find(
+            const earlierIncomplete = weeks.slice(0, currentIndex).filter(
                 w => w.onCount < 3 && !appState.prefWeekAcknowledged.has(w.startKey)
             );
-            if (!earlierIncomplete) return;
+            if (earlierIncomplete.length === 0) return;
 
-            appState.prefPendingReminder = { weekStartKey: earlierIncomplete.startKey, triggeringDateKey, previousValue };
+            appState.prefPendingReminder = {
+                weekStartKeys: earlierIncomplete.map(w => w.startKey),
+                triggeringDateKey,
+                previousValue
+            };
 
-            const startLabel = keyToDate(earlierIncomplete.startKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const endLabel = keyToDate(earlierIncomplete.endKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const lines = earlierIncomplete.map(w => {
+                const startLabel = keyToDate(w.startKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const endLabel = keyToDate(w.endKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return `• ${startLabel} - ${endLabel}: ${w.onCount} of 3 "ON" days`;
+            });
+            const intro = earlierIncomplete.length === 1
+                ? 'This week is not complete yet:'
+                : `These ${earlierIncomplete.length} weeks are not complete yet:`;
+            document.getElementById('prefWeekWarningText').style.whiteSpace = 'pre-line';
             document.getElementById('prefWeekWarningText').textContent =
-                `The week of ${startLabel} - ${endLabel} is not complete yet (only ${earlierIncomplete.onCount} of 3 "ON" days). Are you sure you want to proceed?`;
+                `${intro}\n${lines.join('\n')}\n\nAre you sure you want to proceed?`;
             document.getElementById('prefWeekWarningOverlay').classList.add('active');
         }
 
-        // "Continue" — acknowledge the flagged week and move on. Won't be
-        // asked about that same week again this visit.
+        // "Continue" — acknowledge ALL flagged weeks and move on. Won't be
+        // asked about any of them again this visit.
         function prefWeekReminderContinue() {
             if (appState.prefPendingReminder) {
                 if (!appState.prefWeekAcknowledged) appState.prefWeekAcknowledged = new Set();
-                appState.prefWeekAcknowledged.add(appState.prefPendingReminder.weekStartKey);
+                appState.prefPendingReminder.weekStartKeys.forEach(k => appState.prefWeekAcknowledged.add(k));
             }
             appState.prefPendingReminder = null;
             document.getElementById('prefWeekWarningOverlay').classList.remove('active');
@@ -4578,7 +4589,7 @@
 
         // "Back" — undo the selection that triggered this reminder,
         // restoring that cell to whatever it was before, so attention
-        // stays on completing the earlier flagged week first.
+        // stays on completing the earlier flagged weeks first.
         function prefWeekReminderBack() {
             const pending = appState.prefPendingReminder;
             if (pending) {
@@ -4719,10 +4730,11 @@
         }
 
         // INCOMPLETE-WEEK REMINDER for Shift Request — same behavior as
-        // the Preferences page version: flags the earliest earlier week
-        // with fewer than 3 "ON Shift" days the moment a later week is
-        // touched. "Continue" acknowledges it (e.g. an intentional PTO
-        // week); "Back" undoes the selection that triggered the check.
+        // the Preferences page version: flags EVERY earlier week with
+        // fewer than 3 "ON Shift" days at once (not just the nearest one)
+        // the moment a later week is touched. "Continue" acknowledges all
+        // listed weeks (e.g. an intentional PTO stretch); "Back" undoes
+        // the selection that triggered the check.
         function checkEarlierIncompleteWeekPropose(triggeringDateKey, previousValue) {
             if (!appState.proposeWeekAcknowledged) appState.proposeWeekAcknowledged = new Set();
 
@@ -4731,24 +4743,35 @@
             const currentIndex = weeks.findIndex(w => w.startKey === currentWeekStart);
             if (currentIndex <= 0) return;
 
-            const earlierIncomplete = weeks.slice(0, currentIndex).find(
+            const earlierIncomplete = weeks.slice(0, currentIndex).filter(
                 w => w.onCount < 3 && !appState.proposeWeekAcknowledged.has(w.startKey)
             );
-            if (!earlierIncomplete) return;
+            if (earlierIncomplete.length === 0) return;
 
-            appState.proposePendingReminder = { weekStartKey: earlierIncomplete.startKey, triggeringDateKey, previousValue };
+            appState.proposePendingReminder = {
+                weekStartKeys: earlierIncomplete.map(w => w.startKey),
+                triggeringDateKey,
+                previousValue
+            };
 
-            const startLabel = keyToDate(earlierIncomplete.startKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const endLabel = keyToDate(earlierIncomplete.endKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const lines = earlierIncomplete.map(w => {
+                const startLabel = keyToDate(w.startKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const endLabel = keyToDate(w.endKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return `• ${startLabel} - ${endLabel}: ${w.onCount} of 3 "ON Shift" days`;
+            });
+            const intro = earlierIncomplete.length === 1
+                ? 'This week is not complete yet:'
+                : `These ${earlierIncomplete.length} weeks are not complete yet:`;
+            document.getElementById('proposeWeekWarningText').style.whiteSpace = 'pre-line';
             document.getElementById('proposeWeekWarningText').textContent =
-                `The week of ${startLabel} - ${endLabel} is not complete yet (only ${earlierIncomplete.onCount} of 3 "ON Shift" days). Are you sure you want to proceed?`;
+                `${intro}\n${lines.join('\n')}\n\nAre you sure you want to proceed?`;
             document.getElementById('proposeWeekWarningOverlay').classList.add('active');
         }
 
         function proposeWeekReminderContinue() {
             if (appState.proposePendingReminder) {
                 if (!appState.proposeWeekAcknowledged) appState.proposeWeekAcknowledged = new Set();
-                appState.proposeWeekAcknowledged.add(appState.proposePendingReminder.weekStartKey);
+                appState.proposePendingReminder.weekStartKeys.forEach(k => appState.proposeWeekAcknowledged.add(k));
             }
             appState.proposePendingReminder = null;
             document.getElementById('proposeWeekWarningOverlay').classList.remove('active');
