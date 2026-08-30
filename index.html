@@ -1571,6 +1571,11 @@
                     <!-- CALENDAR GRID -->
                     <div class="calendar-grid" id="preferenceGrid"></div>
 
+                    <!-- PROGRESS INDICATOR — live count of ON days selected
+                         and a heads-up if any week still has zero ON days,
+                         updated by updatePreferenceProgress(). -->
+                    <div id="prefProgressIndicator" style="text-align: center; font-size: 12px; font-weight: 700; color: #2c5f7f; margin: 8px 0;"></div>
+
                     <!-- BUTTONS -->
                     <div class="preference-buttons">
                         <button class="btn-primary" id="submitPrefBtn" onclick="submitPreferences()">Submit</button>
@@ -1765,6 +1770,20 @@
     <div class="saved-toast" id="savedToast">
         <span class="saved-toast-check">✓</span>
         <span>Saved</span>
+    </div>
+
+    <!-- PREFERENCES: ZERO-ON-DAYS WEEK WARNING — pops up automatically the
+         moment a staff member finishes filling in every day of a given
+         week on the Preferences page, if that week ends up with zero
+         "Request ON" days. Not a hard block — just a heads-up in case it
+         was accidental, since a fully-OFF/Unavailable week could also be
+         intentional (vacation, etc). Preferences page only. -->
+    <div class="ai-balance-overlay" id="prefWeekWarningOverlay">
+        <div class="ai-balance-card" style="max-width: 380px; text-align: center;">
+            <h2 style="color: #b8860b;">⚠️ Heads Up</h2>
+            <p id="prefWeekWarningText" style="color: #2c5f7f; font-weight: 600; font-size: 14px; line-height: 1.6; margin: 12px 0;"></p>
+            <button class="btn-primary" style="width: 100%;" onclick="closePrefWeekWarning()">Continue</button>
+        </div>
     </div>
 
     <script>
@@ -4302,6 +4321,11 @@
             let html = '';
             let currentDate = new Date(pendingStart);
 
+            // Tracks which weeks (by their Sunday dateKey) have already
+            // shown the zero-ON warning popup this visit, so it only pops
+            // up once per week rather than repeatedly.
+            appState.prefWeekPopupShown = new Set();
+
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -4475,6 +4499,79 @@
             } else {
                 delete appState.preferences[dateKey];
             }
+
+            updatePreferenceProgress();
+            checkWeekZeroOnPopup(dateKey);
+        }
+
+        // ZERO-ON-DAYS WEEK POPUP — the moment a week (Sun-Sat) becomes
+        // fully filled in (every day has a selection, ON or Unavailable)
+        // AND it has zero "ON" days, show a one-time heads-up card. Not a
+        // hard block — a week with 0 ON is often intentional (vacation,
+        // PTO stretch, etc), so this is just a friendly check, not an
+        // error. Only shows once per week per visit to this page (tracked
+        // in appState.prefWeekPopupShown, reset in generatePreferenceGrid).
+        function checkWeekZeroOnPopup(dateKey) {
+            if (!appState.prefWeekPopupShown) appState.prefWeekPopupShown = new Set();
+
+            const weekKeys = getWeekDateKeys(dateKey);
+            const weekSig = weekKeys[0];
+            if (appState.prefWeekPopupShown.has(weekSig)) return; // already shown this visit
+
+            const allFilled = weekKeys.every(k => appState.preferences[k] !== undefined);
+            if (!allFilled) return;
+
+            const onCount = weekKeys.filter(k => appState.preferences[k] === 'on').length;
+            if (onCount > 0) return;
+
+            appState.prefWeekPopupShown.add(weekSig);
+
+            const startLabel = keyToDate(weekKeys[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const endLabel = keyToDate(weekKeys[6]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            document.getElementById('prefWeekWarningText').textContent =
+                `No "ON" days selected for the week of ${startLabel} - ${endLabel}. If this is intentional (vacation, time off, etc.), just tap Continue.`;
+            document.getElementById('prefWeekWarningOverlay').classList.add('active');
+        }
+
+        function closePrefWeekWarning() {
+            document.getElementById('prefWeekWarningOverlay').classList.remove('active');
+        }
+
+        // PROGRESS INDICATOR — computes ON-day totals per week across the
+        // whole pendingStart..pendingEnd range, and flags any week that
+        // still has ZERO "ON" days selected (a likely accidental gap — as
+        // opposed to a week with 1-2 ON days, which is a normal, intentional
+        // pattern e.g. around a planned vacation/PTO week). Reuses the same
+        // week-grouping as the 3-ON-per-week cap (getWeekDateKeys) so the
+        // "weeks" here always line up with what that limit is enforcing.
+        function getPreferenceWeeklyStats() {
+            const weeks = [];
+            let cursor = new Date(pendingStart);
+            while (cursor <= pendingEnd) {
+                const weekKeys = getWeekDateKeys(dateToKey(cursor));
+                const onCount = weekKeys.filter(k => appState.preferences[k] === 'on').length;
+                weeks.push({ startKey: weekKeys[0], endKey: weekKeys[6], onCount });
+                cursor.setDate(cursor.getDate() + 7);
+            }
+            return weeks;
+        }
+
+        function updatePreferenceProgress() {
+            const el = document.getElementById('prefProgressIndicator');
+            if (!el) return;
+
+            const weeks = getPreferenceWeeklyStats();
+            const totalOn = weeks.reduce((sum, w) => sum + w.onCount, 0);
+            const zeroWeeks = weeks.filter(w => w.onCount === 0).length;
+
+            let text = `${totalOn} ON day${totalOn === 1 ? '' : 's'} selected across ${weeks.length} weeks`;
+            if (zeroWeeks > 0) {
+                text += ` — ⚠️ ${zeroWeeks} week${zeroWeeks === 1 ? '' : 's'} with no ON days yet`;
+                el.style.color = '#d84315';
+            } else {
+                el.style.color = '#00a8a8';
+            }
+            el.textContent = text;
         }
 
         // GENERATE MY PROPOSE SHIFT GRID
