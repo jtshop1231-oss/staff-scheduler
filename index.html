@@ -1772,17 +1772,21 @@
         <span>Saved</span>
     </div>
 
-    <!-- PREFERENCES: ZERO-ON-DAYS WEEK WARNING — pops up automatically the
-         moment a staff member finishes filling in every day of a given
-         week on the Preferences page, if that week ends up with zero
-         "Request ON" days. Not a hard block — just a heads-up in case it
-         was accidental, since a fully-OFF/Unavailable week could also be
-         intentional (vacation, etc). Preferences page only. -->
+    <!-- PREFERENCES: INCOMPLETE WEEK REMINDER — pops up the moment a staff
+         member selects a value in a week LATER than some earlier week that
+         still has fewer than 3 "ON" days. Not a hard block — "Continue"
+         acknowledges it and moves on (e.g. intentional PTO/vacation week,
+         to be finalized later in Shift Request), "Back" undoes the
+         selection that just triggered the reminder so they address the
+         earlier week first. Preferences page only. -->
     <div class="ai-balance-overlay" id="prefWeekWarningOverlay">
         <div class="ai-balance-card" style="max-width: 380px; text-align: center;">
             <h2 style="color: #b8860b;">⚠️ Heads Up</h2>
             <p id="prefWeekWarningText" style="color: #2c5f7f; font-weight: 600; font-size: 14px; line-height: 1.6; margin: 12px 0;"></p>
-            <button class="btn-primary" style="width: 100%;" onclick="closePrefWeekWarning()">Continue</button>
+            <div class="preference-buttons">
+                <button class="btn-secondary" onclick="prefWeekReminderBack()">← Back</button>
+                <button class="btn-primary" onclick="prefWeekReminderContinue()">Continue</button>
+            </div>
         </div>
     </div>
 
@@ -4322,9 +4326,11 @@
             let currentDate = new Date(pendingStart);
 
             // Tracks which weeks (by their Sunday dateKey) have already
-            // shown the zero-ON warning popup this visit, so it only pops
-            // up once per week rather than repeatedly.
-            appState.prefWeekPopupShown = new Set();
+            // been acknowledged via the incomplete-week reminder's
+            // "Continue" button this visit, so it doesn't ask again about
+            // the same week repeatedly.
+            appState.prefWeekAcknowledged = new Set();
+            appState.prefPendingReminder = null;
 
             while (currentDate <= pendingEnd) {
                 const dateKey = currentDate.toISOString().split('T')[0];
@@ -4490,6 +4496,20 @@
                 }
             }
 
+            // Captured BEFORE applying the change, so the incomplete-week
+            // reminder's "Back" button can restore this exact prior value
+            // if the staff decides to address the earlier week first.
+            const previousValue = appState.preferences[dateKey];
+
+            applyPrefCellValue(dateKey, value);
+            updatePreferenceProgress();
+            checkEarlierIncompleteWeek(dateKey, previousValue);
+        }
+
+        // Applies a value (or clears it) to one Preferences cell — both the
+        // data model and the visual cell styling. Split out from
+        // handlePrefChange so the "Back" revert path can reuse it.
+        function applyPrefCellValue(dateKey, value) {
             const cell = document.querySelector(`.preference-cell[data-key="${dateKey}"]`);
             cell.classList.remove('pref-on', 'pref-off', 'pref-pto');
 
@@ -4500,40 +4520,63 @@
                 delete appState.preferences[dateKey];
             }
 
-            updatePreferenceProgress();
-            checkWeekZeroOnPopup(dateKey);
+            const select = document.getElementById(`select-${dateKey}`);
+            if (select) select.value = value || '';
         }
 
-        // ZERO-ON-DAYS WEEK POPUP — the moment a week (Sun-Sat) becomes
-        // fully filled in (every day has a selection, ON or Unavailable)
-        // AND it has zero "ON" days, show a one-time heads-up card. Not a
-        // hard block — a week with 0 ON is often intentional (vacation,
-        // PTO stretch, etc), so this is just a friendly check, not an
-        // error. Only shows once per week per visit to this page (tracked
-        // in appState.prefWeekPopupShown, reset in generatePreferenceGrid).
-        function checkWeekZeroOnPopup(dateKey) {
-            if (!appState.prefWeekPopupShown) appState.prefWeekPopupShown = new Set();
+        // INCOMPLETE-WEEK REMINDER — the moment a staff member selects a
+        // value in a week that comes AFTER some earlier week which still
+        // has fewer than 3 "ON" days, show a heads-up. This catches
+        // skipped-over weeks (not just the immediately previous one), so
+        // e.g. Weeks 1-3 being fine but Week 4 being left incomplete still
+        // gets caught the moment they touch Week 5 or later. Not a hard
+        // block: "Continue" acknowledges that week (won't ask again this
+        // visit — useful for an intentional PTO/vacation week), "Back"
+        // undoes the selection that triggered this check, keeping their
+        // attention on the earlier gap first.
+        function checkEarlierIncompleteWeek(triggeringDateKey, previousValue) {
+            if (!appState.prefWeekAcknowledged) appState.prefWeekAcknowledged = new Set();
 
-            const weekKeys = getWeekDateKeys(dateKey);
-            const weekSig = weekKeys[0];
-            if (appState.prefWeekPopupShown.has(weekSig)) return; // already shown this visit
+            const weeks = getPreferenceWeeklyStats();
+            const currentWeekStart = getWeekDateKeys(triggeringDateKey)[0];
+            const currentIndex = weeks.findIndex(w => w.startKey === currentWeekStart);
+            if (currentIndex <= 0) return; // first week, or not found — nothing earlier to check
 
-            const allFilled = weekKeys.every(k => appState.preferences[k] !== undefined);
-            if (!allFilled) return;
+            const earlierIncomplete = weeks.slice(0, currentIndex).find(
+                w => w.onCount < 3 && !appState.prefWeekAcknowledged.has(w.startKey)
+            );
+            if (!earlierIncomplete) return;
 
-            const onCount = weekKeys.filter(k => appState.preferences[k] === 'on').length;
-            if (onCount > 0) return;
+            appState.prefPendingReminder = { weekStartKey: earlierIncomplete.startKey, triggeringDateKey, previousValue };
 
-            appState.prefWeekPopupShown.add(weekSig);
-
-            const startLabel = keyToDate(weekKeys[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const endLabel = keyToDate(weekKeys[6]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const startLabel = keyToDate(earlierIncomplete.startKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const endLabel = keyToDate(earlierIncomplete.endKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             document.getElementById('prefWeekWarningText').textContent =
-                `No "ON" days selected for the week of ${startLabel} - ${endLabel}. If this is intentional (vacation, time off, etc.), just tap Continue.`;
+                `The week of ${startLabel} - ${endLabel} is not complete yet (only ${earlierIncomplete.onCount} of 3 "ON" days). Are you sure you want to proceed?`;
             document.getElementById('prefWeekWarningOverlay').classList.add('active');
         }
 
-        function closePrefWeekWarning() {
+        // "Continue" — acknowledge the flagged week and move on. Won't be
+        // asked about that same week again this visit.
+        function prefWeekReminderContinue() {
+            if (appState.prefPendingReminder) {
+                if (!appState.prefWeekAcknowledged) appState.prefWeekAcknowledged = new Set();
+                appState.prefWeekAcknowledged.add(appState.prefPendingReminder.weekStartKey);
+            }
+            appState.prefPendingReminder = null;
+            document.getElementById('prefWeekWarningOverlay').classList.remove('active');
+        }
+
+        // "Back" — undo the selection that triggered this reminder,
+        // restoring that cell to whatever it was before, so attention
+        // stays on completing the earlier flagged week first.
+        function prefWeekReminderBack() {
+            const pending = appState.prefPendingReminder;
+            if (pending) {
+                applyPrefCellValue(pending.triggeringDateKey, pending.previousValue || '');
+                updatePreferenceProgress();
+            }
+            appState.prefPendingReminder = null;
             document.getElementById('prefWeekWarningOverlay').classList.remove('active');
         }
 
