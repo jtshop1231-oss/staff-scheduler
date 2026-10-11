@@ -1265,9 +1265,6 @@
                             <label>Department / Unit</label>
                             <select id="regUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateRoleOptions('regUnit', 'regRole')">
                                 <option value="" selected disabled>Select your Unit/Department</option>
-                                <option value="IMU">IMU</option>
-                                <option value="ICU">ICU</option>
-                                <option value="Telemetry">Telemetry</option>
                             </select>
                         </div>
 
@@ -1336,9 +1333,6 @@
                             <select id="adminLoginUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;">
                                 <option value="" selected disabled>-- Select a Unit --</option>
                                 <option value="All">All Units (choose later)</option>
-                                <option value="IMU">IMU</option>
-                                <option value="ICU">ICU</option>
-                                <option value="Telemetry">Telemetry</option>
                             </select>
                         </div>
 
@@ -1367,9 +1361,6 @@
                         <label>Managing Unit</label>
                         <select id="adminManageUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="handleAdminUnitChange()">
                             <option value="All">All Units</option>
-                            <option value="IMU">IMU</option>
-                            <option value="ICU">ICU</option>
-                            <option value="Telemetry">Telemetry</option>
                         </select>
                     </div>
 
@@ -1641,9 +1632,6 @@
                         <select id="adminUnitFilter" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateAdminStaffSelect()">
                             <option value="" selected disabled>-- Select Unit --</option>
                             <option value="All">All Units</option>
-                            <option value="IMU">IMU</option>
-                            <option value="ICU">ICU</option>
-                            <option value="Telemetry">Telemetry</option>
                         </select>
                     </div>
 
@@ -1672,9 +1660,6 @@
                         <label>Unit / Department</label>
                         <select id="rosterUnit" style="width: 100%; padding: 8px; border: 0.2px solid #000000; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; color: #2c5f7f;" onchange="populateRoleOptions('rosterUnit', 'rosterRole')">
                             <option value="" selected disabled>-- Select Unit --</option>
-                            <option value="IMU">IMU</option>
-                            <option value="ICU">ICU</option>
-                            <option value="Telemetry">Telemetry</option>
                         </select>
                     </div>
 
@@ -1830,6 +1815,20 @@
         let pendingStart = new Date(2026, 7, 9);   // 8/9/2026
         let pendingEnd = new Date(2026, 8, 19);    // 9/19/2026
 
+        // ============================================================
+        // ORGANIZATION CONFIG — the two lists below are the ONLY place
+        // that needs editing to repurpose this app for a different
+        // department structure or a different organization entirely. Every
+        // Unit <select> in the app (Registration, Admin Login, Admin
+        // Manage Unit, Admin Unit Filter, Fix Staff Info) is populated
+        // from UNIT_OPTIONS at startup by populateAllUnitDropdowns() —
+        // none of them hardcode "IMU"/"ICU"/"Telemetry" directly anymore.
+        // If Units change here, update ROLE_OPTIONS_BY_UNIT's keys to
+        // match (each Unit needs a matching entry, even if it's just one
+        // generic role).
+        // ============================================================
+        const UNIT_OPTIONS = ['IMU', 'ICU', 'Telemetry'];
+
         // ROLE/POSITION OPTIONS PER UNIT — Telemetry only has Monitor Techs,
         // while IMU/ICU have a mix of RNs and PCA/PCTs. This is for the
         // shift-working staff who actually appear on the schedule; Admin
@@ -1840,6 +1839,18 @@
             IMU: ['RN', 'PCA/PCT'],
             ICU: ['RN', 'PCA/PCT']
         };
+
+        // Populates every Unit <select> in the app from UNIT_OPTIONS,
+        // appending after whatever placeholder/"All Units" option is
+        // already present in that select's static HTML. Called once on
+        // page load (see window.onload below).
+        function populateAllUnitDropdowns() {
+            const optionsHtml = UNIT_OPTIONS.map(u => `<option value="${u}">${u}</option>`).join('');
+            ['regUnit', 'adminLoginUnit', 'adminManageUnit', 'adminUnitFilter', 'rosterUnit'].forEach((id) => {
+                const select = document.getElementById(id);
+                if (select) select.insertAdjacentHTML('beforeend', optionsHtml);
+            });
+        }
 
         // FILL A ROLE/POSITION <select> BASED ON WHICHEVER UNIT IS CURRENTLY
         // CHOSEN IN THE PAIRED UNIT <select>. Used by both the staff
@@ -1900,6 +1911,7 @@
 
         // INITIALIZE
         window.onload = () => {
+            populateAllUnitDropdowns();
             updateLiveTime();
             setInterval(updateLiveTime, 1000);
             generatePreferenceGrid();
@@ -2246,8 +2258,62 @@
 
             const staffKey = nameToStaffEmail(name).split('@')[0];
 
+            // SELF-HEALING REGISTRATION
+            // Registration is two steps: (1) create the Firebase login
+            // account, (2) save the staff record + login lookup in
+            // Firestore. If step 2 fails (e.g. a Firestore rule problem or
+            // a dropped connection), step 1 has already happened, so a
+            // plain retry would hit "email already in use" and get stuck.
+            // To avoid that, a retry with the SAME email + password signs
+            // in to the half-finished account and completes whatever is
+            // missing instead of giving up.
             try {
-                await auth.createUserWithEmailAndPassword(email, password);
+                let createdNow = false;
+                try {
+                    await auth.createUserWithEmailAndPassword(email, password);
+                    createdNow = true;
+                } catch (createError) {
+                    if (createError.code !== 'auth/email-already-in-use') throw createError;
+                    try {
+                        await auth.signInWithEmailAndPassword(email, password);
+                    } catch (signInError) {
+                        console.error('Registration retry sign-in failed:', signInError);
+                        alert('An account with this email already exists, and the password does not match it. Please use "Log in here" instead, or contact Admin.');
+                        showStaffLoginForm();
+                        return;
+                    }
+                }
+
+                // Never overwrite someone else's record. The staff record id
+                // is based on the name, so two different people with the
+                // same name would collide.
+                const existingDoc = await db.collection('staffDirectory').doc(staffKey).get();
+                if (existingDoc.exists) {
+                    const existing = existingDoc.data();
+                    const existingEmail = (existing.authEmail || nameToStaffEmail(existing.name || name)).toLowerCase();
+
+                    if (existingEmail !== email.toLowerCase()) {
+                        // A different person already uses this name.
+                        if (createdNow && auth.currentUser) {
+                            await auth.currentUser.delete().catch(e => console.error('Cleanup of new auth account failed:', e));
+                        } else {
+                            await auth.signOut();
+                        }
+                        alert('Another staff member is already registered with this name. Please add a last initial or last name (for example "Noel R.") and try again, or contact Admin.');
+                        return;
+                    }
+
+                    // Same person, record already saved by an earlier
+                    // attempt. Just make sure the login lookup exists, then
+                    // log them in with the password they just typed.
+                    await db.collection('loginLookup').doc(staffKey).set({ name: existing.name || name, email }, { merge: true });
+                    document.getElementById('staffName').value = email;
+                    document.getElementById('staffPassword').value = password;
+                    showStaffLoginForm();
+                    await loginStaff();
+                    document.getElementById('staffPassword').value = '';
+                    return;
+                }
 
                 await db.collection('staffDirectory').doc(staffKey).set({ name, unit, role, shift, employmentType, authEmail: email, active: true });
 
@@ -2265,9 +2331,8 @@
                 showHomepage();
             } catch (error) {
                 console.error('Staff registration error:', error);
-                if (error.code === 'auth/email-already-in-use') {
-                    alert('An account with this name already exists. Please log in instead.');
-                    showStaffLoginForm();
+                if (error.code === 'permission-denied') {
+                    alert('Registration could not be saved because of a permissions problem. Your login account may already be created. Please tell Admin, then try Create Account again with the same email and password.');
                 } else {
                     alert('Registration failed: ' + error.message);
                 }
